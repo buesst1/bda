@@ -19,7 +19,7 @@ def plot_beta_prior(alpha: float, beta: float):
     plt.figure(figsize=(8, 5))
     plt.plot(x, y, label=f"Beta(alpha={alpha}, beta={beta})")
     plt.title("Beta Prior")
-    plt.xlabel("Probability")
+    plt.xlabel("π")
     plt.ylabel("Density")
     plt.legend()
     plt.grid(True)
@@ -42,7 +42,7 @@ def plot_binomial_likelihood(n: int, y: int):
     plt.figure(figsize=(8, 5))
     plt.plot(p, likelihood, label=f"Scaled Likelihood (n={n}, y={y})")
     plt.title("Binomial Likelihood")
-    plt.xlabel("Probability")
+    plt.xlabel("π")
     plt.ylabel("Likelihood")
     plt.legend()
     plt.grid(True)
@@ -81,7 +81,7 @@ def plot_beta_binomial(alpha: float, beta: float, n: int, y: int):
     plt.plot(x, posterior_pdf, label="Posterior", linestyle="-")
 
     plt.title("Beta-Binomial Analysis")
-    plt.xlabel("Probability")
+    plt.xlabel("π")
     plt.ylabel("Density")
     plt.legend()
     plt.grid(True)
@@ -191,7 +191,7 @@ def plot_gamma_prior(shape: float, rate: float):
     plt.figure(figsize=(8, 5))
     plt.plot(x, y, label=f"Gamma(shape={shape}, rate={rate})")
     plt.title("Gamma Prior")
-    plt.xlabel("x")
+    plt.xlabel("λ")
     plt.ylabel("Density")
     plt.legend()
     plt.grid(True)
@@ -219,7 +219,7 @@ def plot_poisson_likelihood(y: np.ndarray, lambda_upper_bound: float):
     plt.figure(figsize=(8, 5))
     plt.plot(lambdas, likelihoods, label="Scaled Joint Likelihood")
     plt.title("Poisson Joint Likelihood")
-    plt.xlabel("Lambda")
+    plt.xlabel("λ")
     plt.ylabel("Likelihood")
     plt.legend()
     plt.grid(True)
@@ -237,8 +237,22 @@ def plot_gamma_poisson(shape: float, rate: float, sum_y: int, n: int):
     n (int): Number of observations.
     """
 
-    x_max = stats.gamma.ppf(0.99999, shape, scale=1 / rate)
-    x = np.linspace(0, x_max, 1000)
+    # calculate range of x
+    x_min = min(
+        (
+            stats.gamma.ppf(1e-05, shape, scale=1 / rate),
+            stats.gamma.ppf(1e-05, shape + sum_y, scale=1 / (rate + n)),
+            stats.gamma.ppf(1e-05, sum_y + 1, scale=1 / n),
+        )
+    )
+    x_max = max(
+        (
+            stats.gamma.ppf(0.99999, shape, scale=1 / rate),
+            stats.gamma.ppf(0.99999, shape + sum_y, scale=1 / (rate + n)),
+            stats.gamma.ppf(0.99999, sum_y + 1, scale=1 / n),
+        )
+    )
+    x = np.linspace(x_min, x_max, 1000)
 
     # Prior distribution
     prior_pdf = stats.gamma.pdf(x, shape, scale=1 / rate)
@@ -259,7 +273,7 @@ def plot_gamma_poisson(shape: float, rate: float, sum_y: int, n: int):
     plt.plot(x, posterior_pdf, label="Posterior", linestyle="-")
 
     plt.title("Gamma-Poisson Analysis")
-    plt.xlabel("Rate")
+    plt.xlabel("λ")
     plt.ylabel("Density")
     plt.legend()
     plt.grid(True)
