@@ -50,7 +50,7 @@ def plot_binomial_likelihood(n: int, k: int):
     plt.show()
 
 
-def plot_beta_binomial(alpha: float, beta: float, k: int, n: int):
+def plot_beta_binomial(alpha: float, beta: float, n: int, k: int):
     """
     Plot the prior, scaled likelihood, and posterior distributions for a Beta-Binomial model.
 
@@ -125,7 +125,7 @@ def summarize_beta(alpha: float, beta: float):
     return summary
 
 
-def summarize_beta_binomial(alpha: float, beta: float, k: int, n: int):
+def summarize_beta_binomial(alpha: float, beta: float, n: int, k: int):
     """
     Summarize the prior and posterior Beta distributions for a Beta-Binomial model.
 
