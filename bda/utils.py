@@ -90,6 +90,41 @@ def plot_beta_binomial(alpha: float, beta: float, k: int, n: int):
     plt.show()
 
 
+def summarize_beta(alpha: float, beta: float):
+    """
+    Summarize the Beta distribution given its parameters.
+
+    Parameters:
+    alpha (float): Alpha parameter of the Beta distribution.
+    beta (float): Beta parameter of the Beta distribution.
+
+    Returns:
+    pd.DataFrame: Summary statistics for the Beta distribution.
+    """
+    # Calculate summary statistics for the Beta distribution
+    mean = alpha / (alpha + beta)
+    mode = (alpha - 1) / (alpha + beta - 2) if alpha > 1 and beta > 1 else np.nan
+    var = (alpha * beta) / ((alpha + beta) ** 2 * (alpha + beta + 1))
+    sd = np.sqrt(var)
+
+    # Create a DataFrame to summarize results
+    summary = pd.DataFrame(
+        {
+            "alpha": [alpha],
+            "beta": [beta],
+            "mean": [mean],
+            "mode": [mode],
+            "var": [var],
+            "sd": [sd],
+        },
+        index=["Beta Distribution"],
+    )
+
+    summary.index.name = "distribution"
+
+    return summary
+
+
 def summarize_beta_binomial(alpha: float, beta: float, k: int, n: int):
     """
     Summarize the prior and posterior Beta distributions for a Beta-Binomial model.
