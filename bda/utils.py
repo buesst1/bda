@@ -13,11 +13,12 @@ def plot_beta_prior(alpha: float, beta: float):
     alpha (float): Alpha parameter of the Beta distribution.
     beta (float): Beta parameter of the Beta distribution.
     """
+
     x = np.linspace(0, 1, 1000)
     y = stats.beta.pdf(x, alpha, beta)
     plt.figure(figsize=(8, 5))
-    plt.plot(x, y, label=f"Beta({alpha}, {beta})")
-    plt.title("Beta Distribution")
+    plt.plot(x, y, label=f"Beta(alpha={alpha}, beta={beta})")
+    plt.title("Beta Prior")
     plt.xlabel("Probability")
     plt.ylabel("Density")
     plt.legend()
@@ -36,11 +37,11 @@ def plot_binomial_likelihood(n: int, k: int):
 
     p = np.linspace(0, 1, 1000)
     likelihood = stats.binom.pmf(k, n, p)
-    likelihood /= likelihood.sum()  # Scale for comparison
+    likelihood /= likelihood.sum()  # Scale for comparison so area under the curve is 1
     likelihood *= len(p) - 1
 
     plt.figure(figsize=(8, 5))
-    plt.plot(p, likelihood, label=f"Likelihood (n={n}, k={k})")
+    plt.plot(p, likelihood, label=f"Scaled Likelihood (n={n}, k={k})")
     plt.title("Binomial Likelihood")
     plt.xlabel("Probability")
     plt.ylabel("Likelihood")
@@ -156,7 +157,7 @@ def plot_gamma_prior(shape: float, rate: float):
     y = stats.gamma.pdf(x, shape, scale=1 / rate)
     plt.figure(figsize=(8, 5))
     plt.plot(x, y, label=f"Gamma(shape={shape}, rate={rate})")
-    plt.title("Gamma Distribution")
+    plt.title("Gamma Prior")
     plt.xlabel("x")
     plt.ylabel("Density")
     plt.legend()
