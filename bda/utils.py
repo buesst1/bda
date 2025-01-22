@@ -26,22 +26,21 @@ def plot_beta_prior(alpha: float, beta: float):
     plt.show()
 
 
-def plot_binomial_likelihood(n: int, k: int):
+def plot_binomial_likelihood(n: int, y: int):
     """
     Plot the likelihood for a Binomial distribution given n and k.
 
     Parameters:
     n (int): Number of trials.
-    k (int): Number of successes.
+    y (int): Number of successes.
     """
 
     p = np.linspace(0, 1, 1000)
-    likelihood = stats.binom.pmf(k, n, p)
-    likelihood /= likelihood.sum()  # Scale for comparison so area under the curve is 1
-    likelihood *= len(p) - 1
+    likelihood = stats.binom.pmf(y, n, p)
+    likelihood /= np.trapezoid(likelihood, p)  # Scale for comparison
 
     plt.figure(figsize=(8, 5))
-    plt.plot(p, likelihood, label=f"Scaled Likelihood (n={n}, k={k})")
+    plt.plot(p, likelihood, label=f"Scaled Likelihood (n={n}, y={y})")
     plt.title("Binomial Likelihood")
     plt.xlabel("Probability")
     plt.ylabel("Likelihood")
@@ -50,15 +49,15 @@ def plot_binomial_likelihood(n: int, k: int):
     plt.show()
 
 
-def plot_beta_binomial(alpha: float, beta: float, n: int, k: int):
+def plot_beta_binomial(alpha: float, beta: float, n: int, y: int):
     """
     Plot the prior, scaled likelihood, and posterior distributions for a Beta-Binomial model.
 
     Parameters:
     alpha (float): Prior alpha parameter of the Beta distribution.
     beta (float): Prior beta parameter of the Beta distribution.
-    k (int): Number of successes.
     n (int): Number of trials.
+    y (int): Number of successes.
     """
 
     x = np.linspace(0, 1, 10000)
@@ -67,13 +66,12 @@ def plot_beta_binomial(alpha: float, beta: float, n: int, k: int):
     prior_pdf = stats.beta.pdf(x, alpha, beta)
 
     # Scaled likelihood (Binomial likelihood scaled to match the Beta shape)
-    likelihood_pdf = x**k * (1 - x) ** (n - k)
-    likelihood_pdf /= likelihood_pdf.sum()  # Scale for comparison
-    likelihood_pdf *= len(x) - 1
+    likelihood_pdf = x**y * (1 - x) ** (n - y)
+    likelihood_pdf /= np.trapezoid(likelihood_pdf, x)  # Scale for comparison
 
     # Posterior distribution
-    posterior_alpha = alpha + k
-    posterior_beta = beta + (n - k)
+    posterior_alpha = alpha + y
+    posterior_beta = beta + (n - y)
     posterior_pdf = stats.beta.pdf(x, posterior_alpha, posterior_beta)
 
     # Plotting
@@ -125,15 +123,15 @@ def summarize_beta(alpha: float, beta: float):
     return summary
 
 
-def summarize_beta_binomial(alpha: float, beta: float, n: int, k: int):
+def summarize_beta_binomial(alpha: float, beta: float, n: int, y: int):
     """
     Summarize the prior and posterior Beta distributions for a Beta-Binomial model.
 
     Parameters:
     alpha (float): Prior alpha parameter of the Beta distribution.
     beta (float): Prior beta parameter of the Beta distribution.
-    k (int): Number of successes.
     n (int): Number of trials.
+    y (int): Number of successes.
 
     Returns:
     pd.DataFrame: Summary statistics for the prior and posterior distributions.
@@ -145,8 +143,8 @@ def summarize_beta_binomial(alpha: float, beta: float, n: int, k: int):
     prior_sd = np.sqrt(prior_var)
 
     # Posterior distribution parameters
-    posterior_alpha = alpha + k
-    posterior_beta = beta + (n - k)
+    posterior_alpha = alpha + y
+    posterior_beta = beta + (n - y)
     posterior_mean = posterior_alpha / (posterior_alpha + posterior_beta)
     posterior_mode = (
         (posterior_alpha - 1) / (posterior_alpha + posterior_beta - 2)
@@ -175,8 +173,6 @@ def summarize_beta_binomial(alpha: float, beta: float, n: int, k: int):
 
     return summary
 
-    return summary
-
 
 # Gamma-Poisson
 def plot_gamma_prior(shape: float, rate: float):
@@ -188,8 +184,10 @@ def plot_gamma_prior(shape: float, rate: float):
     rate (float): Rate parameter of the Gamma distribution.
     """
 
-    x = np.linspace(0, 5 * shape / rate, 1000)
+    x_max = stats.gamma.ppf(0.99999, shape, scale=1 / rate)
+    x = np.linspace(0, x_max, 1000)
     y = stats.gamma.pdf(x, shape, scale=1 / rate)
+
     plt.figure(figsize=(8, 5))
     plt.plot(x, y, label=f"Gamma(shape={shape}, rate={rate})")
     plt.title("Gamma Prior")
@@ -200,27 +198,26 @@ def plot_gamma_prior(shape: float, rate: float):
     plt.show()
 
 
-def plot_poisson_likelihood(counts: np.ndarray, lambda_upper_bound: float):
+def plot_poisson_likelihood(y: np.ndarray, lambda_upper_bound: float):
     """
-    Plot the joint likelihood of the Poisson distribution for given counts and lambda values.
+    Plot the joint likelihood of the Poisson distribution for given data (counts) and lambda values.
 
     Parameters:
-    counts (np.ndarray): Array of observed counts.
+    y (np.ndarray): Array of observed data (counts).
     lambda_upper_bound (float): Upper bound for lambda values to evaluate.
     """
 
     lambdas = np.linspace(0, lambda_upper_bound, 1000)
     likelihoods = []
     for lambda_ in lambdas:
-        joint_likelihood = np.prod(stats.poisson.pmf(counts, lambda_))
+        joint_likelihood = np.prod(stats.poisson.pmf(y, lambda_))
         likelihoods.append(joint_likelihood)
 
     likelihoods = np.array(likelihoods)
-    likelihoods /= likelihoods.sum()  # Scale for comparison
-    likelihoods *= len(lambdas) - 1
+    likelihoods /= np.trapezoid(likelihoods, lambdas)  # Scale for comparison
 
     plt.figure(figsize=(8, 5))
-    plt.plot(lambdas, likelihoods, label="Joint Likelihood")
+    plt.plot(lambdas, likelihoods, label="Scaled Joint Likelihood")
     plt.title("Poisson Joint Likelihood")
     plt.xlabel("Lambda")
     plt.ylabel("Likelihood")
@@ -240,15 +237,15 @@ def plot_gamma_poisson(shape: float, rate: float, sum_y: int, n: int):
     n (int): Number of observations.
     """
 
-    x = np.linspace(0, 5 * shape / rate, 1000)
+    x_max = stats.gamma.ppf(0.99999, shape, scale=1 / rate)
+    x = np.linspace(0, x_max, 1000)
 
     # Prior distribution
     prior_pdf = stats.gamma.pdf(x, shape, scale=1 / rate)
 
     # Scaled likelihood (Poisson likelihood scaled to match Gamma shape)
     likelihood_pdf = x**sum_y * np.exp(-n * x)
-    likelihood_pdf /= likelihood_pdf.sum()  # Scale for comparison
-    likelihood_pdf *= len(x) - 1
+    likelihood_pdf /= np.trapezoid(likelihood_pdf, x)  # Scale for comparison
 
     # Posterior distribution
     posterior_shape = shape + sum_y
@@ -283,30 +280,43 @@ def summarize_gamma_poisson(shape: float, rate: float, sum_y: int, n: int):
     pd.DataFrame: Summary statistics for the prior and posterior distributions.
     """
 
-    # Prior distribution parameters
+    # --- Prior parameters & derived stats ---
     prior_mean = shape / rate
     prior_var = shape / rate**2
     prior_sd = np.sqrt(prior_var)
 
-    # Posterior distribution parameters
+    # Mode of the prior
+    if shape > 1:
+        prior_mode = (shape - 1) / rate
+    else:
+        # If shape <= 1, the peak is at 0
+        prior_mode = 0.0
+
+    # --- Posterior parameters & derived stats ---
     posterior_shape = shape + sum_y
     posterior_rate = rate + n
     posterior_mean = posterior_shape / posterior_rate
-    posterior_var = posterior_shape / posterior_rate**2
+    posterior_var = posterior_shape / (posterior_rate**2)
     posterior_sd = np.sqrt(posterior_var)
 
-    # Create a DataFrame to summarize results
+    # Mode of the posterior
+    if posterior_shape > 1:
+        posterior_mode = (posterior_shape - 1) / posterior_rate
+    else:
+        posterior_mode = 0.0
+
+    # --- Build summary DataFrame ---
     summary = pd.DataFrame(
         {
             "shape": [shape, posterior_shape],
             "rate": [rate, posterior_rate],
             "mean": [prior_mean, posterior_mean],
+            "mode": [prior_mode, posterior_mode],
             "var": [prior_var, posterior_var],
             "sd": [prior_sd, posterior_sd],
         },
         index=["prior", "posterior"],
     )
-
     summary.index.name = "model"
 
     return summary
