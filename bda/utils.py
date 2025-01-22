@@ -266,6 +266,51 @@ def plot_gamma_poisson(shape: float, rate: float, sum_y: int, n: int):
     plt.show()
 
 
+def summarize_gamma(shape: float, rate: float) -> pd.DataFrame:
+    """
+    Summarize the Gamma distribution given its parameters.
+
+    Parameters
+    ----------
+    shape : float
+        Shape parameter of the Gamma distribution.
+    rate : float
+        Rate parameter of the Gamma distribution.
+
+    Returns
+    -------
+    pd.DataFrame
+        Summary statistics for the Gamma distribution.
+    """
+    # Mean of Gamma(shape, rate) = shape / rate
+    mean = shape / rate
+
+    # Mode of Gamma(shape, rate) = (shape - 1) / rate, if shape > 1; otherwise undefined/NaN
+    mode = (shape - 1) / rate if shape > 1 else np.nan
+
+    # Variance of Gamma(shape, rate) = shape / (rate^2)
+    var = shape / (rate**2)
+
+    # Standard deviation
+    sd = np.sqrt(var)
+
+    # Create a DataFrame to summarize results
+    summary = pd.DataFrame(
+        {
+            "shape": [shape],
+            "rate": [rate],
+            "mean": [mean],
+            "mode": [mode],
+            "var": [var],
+            "sd": [sd],
+        },
+        index=["Gamma Distribution"],
+    )
+
+    summary.index.name = "distribution"
+    return summary
+
+
 def summarize_gamma_poisson(shape: float, rate: float, sum_y: int, n: int):
     """
     Summarize the prior and posterior Gamma distributions for a Gamma-Poisson model.
