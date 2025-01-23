@@ -1,7 +1,12 @@
 import pandas as pd
 import scipy.stats as stats
 import numpy as np
+import seaborn as sns
 import matplotlib.pyplot as plt
+import stan
+import nest_asyncio
+
+nest_asyncio.apply()
 
 
 # Beta-Binomial
@@ -652,3 +657,511 @@ def summarize_normal_normal(
     return summary
 
 
+# MCMC
+def mcmc_stan(
+    model_code,
+    data,
+    num_chains=4,
+    num_samples=10000,
+    num_warmup=5000,
+    save_warmup: bool = False,
+    random_seed=42,
+):
+    """
+    Run Markov Chain Monte Carlo (MCMC) sampling using Stan and process results.
+
+    This function builds a Stan model, performs MCMC sampling, and converts
+    the sampling results into a pandas DataFrame for easy analysis.
+
+    Parameters:
+    -----------
+    model_code : str
+        Stan model code defining the probabilistic model
+    data : dict
+        Input data dictionary for the Stan model
+    num_chains : int, optional
+        Number of parallel Markov chains to run (default: 4)
+    num_samples : int, optional
+        Number of samples to draw per chain after warmup (default: 1000)
+    num_warmup : int, optional
+        Number of warmup/initialization samples to discard (default: 500)
+    save_warmup : bool, optional
+        Whether to include warmup samples in the output (default: False)
+    random_seed : int, optional
+        Seed for random number generation to ensure reproducibility (default: 42)
+
+    Returns:
+    --------
+    pd.DataFrame
+        DataFrame containing MCMC sampling results with columns:
+        - chain_{i}: Samples for each chain
+        - sample_nr: Sample number within the chain
+        - var_name: Parameter name
+        - is_warmup: Boolean indicating if sample is from warmup period
+    """
+
+    # Build Stan model with specified data and random seed
+    posterior = stan.build(model_code, data=data, random_seed=random_seed)
+
+    # Perform MCMC sampling
+    fit = posterior.sample(
+        num_chains=num_chains,
+        num_samples=num_samples,
+        num_warmup=num_warmup,
+        save_warmup=save_warmup,
+    )
+
+    # Process and convert sampling results to DataFrame
+    dfs = []
+    for i, chains in enumerate(fit._draws[-len(fit.constrained_param_names) :]):
+        # Extract variable name for current parameter
+        var = fit.constrained_param_names[i]
+
+        # Create DataFrame for current parameter's chains
+        df = pd.DataFrame(
+            chains, columns=[f"chain_{i}" for i in range(chains.shape[1])]
+        )
+        df["sample_nr"] = np.arange(chains.shape[0]) - (
+            num_warmup if save_warmup else 0
+        )
+        df["var_name"] = var
+        df["is_warmup"] = False
+
+        # Mark warmup samples if save_warmup is True
+        if save_warmup:
+            df["is_warmup"].values[:num_warmup] = True
+
+        dfs.append(df)
+
+    # Concatenate results from all parameters
+    return pd.concat(dfs, ignore_index=True)
+
+
+def mcmc_trace(vars_n_chains: pd.DataFrame):
+    """
+    Create trace plots for MCMC sampling results in a grid.
+
+    Parameters:
+    -----------
+    vars_n_chains : pd.DataFrame
+        DataFrame from MCMC_STAN with columns: chain_{i}, sample_nr, var_name, is_warmup
+    """
+    # Get unique variables
+    unique_vars = vars_n_chains["var_name"].unique()
+
+    # Calculate grid dimensions
+    num_vars = len(unique_vars)
+    num_cols = int(min(3, num_vars))
+    num_rows = int(np.ceil(num_vars / num_cols))
+
+    # Create subplots
+    fig, axes = plt.subplots(
+        nrows=num_rows,
+        ncols=num_cols,
+        figsize=(7 * num_cols, 4 * num_rows),
+        squeeze=False,
+    )
+
+    # Flatten axes for easier indexing
+    axes_flat = axes.flatten()
+
+    # Plot each variable
+    for i, var in enumerate(unique_vars):
+        var_data = vars_n_chains[vars_n_chains["var_name"] == var]
+
+        # Select chain columns
+        chain_cols = [col for col in var_data.columns if col.startswith("chain_")]
+
+        # Melt the DataFrame for seaborn
+        melted_data = var_data.melt(
+            id_vars=["sample_nr", "is_warmup"],
+            value_vars=chain_cols,
+            var_name="chain",
+            value_name="value",
+        )
+
+        # Create trace plot
+        sns.lineplot(
+            data=melted_data,
+            x="sample_nr",
+            y="value",
+            hue="chain",
+            ax=axes_flat[i],
+            alpha=0.5,
+        )
+
+        axes_flat[i].set_title(var)
+        axes_flat[i].set_xlabel("Sample Number")
+        axes_flat[i].set_ylabel("Value")
+
+    # Remove extra subplots if any
+    for j in range(i + 1, len(axes_flat)):
+        fig.delaxes(axes_flat[j])
+
+    plt.suptitle("MCMC trace")
+    plt.tight_layout()
+    plt.show()
+
+
+def mcmc_hist(
+    vars_n_chains: pd.DataFrame,
+    stat: str = "count",
+    bins: int = 50,
+):
+    """
+    Create histplots for MCMC sampling results in a grid.
+
+    Parameters:
+    -----------
+    vars_n_chains : pd.DataFrame
+        DataFrame from MCMC_STAN with columns: chain_{i}, sample_nr, var_name, is_warmup
+    stat: str
+        statistic on y axis
+    bins int:
+        number of bins in histogram
+    """
+    # Get unique variables
+    unique_vars = vars_n_chains["var_name"].unique()
+
+    # Calculate grid dimensions
+    num_vars = len(unique_vars)
+    num_cols = int(min(3, num_vars))
+    num_rows = int(np.ceil(num_vars / num_cols))
+
+    # Create subplots
+    fig, axes = plt.subplots(
+        nrows=num_rows,
+        ncols=num_cols,
+        figsize=(7 * num_cols, 4 * num_rows),
+        squeeze=False,
+    )
+
+    # Flatten axes for easier indexing
+    axes_flat = axes.flatten()
+
+    # Plot each variable
+    for i, var in enumerate(unique_vars):
+        var_data = vars_n_chains[vars_n_chains["var_name"] == var]
+
+        # Select chain columns
+        chain_cols = [col for col in var_data.columns if col.startswith("chain_")]
+
+        # Melt the DataFrame for seaborn
+        melted_data = var_data.melt(
+            id_vars=["sample_nr", "is_warmup"],
+            value_vars=chain_cols,
+            var_name="chain",
+            value_name="value",
+        )
+
+        # Create trace plot
+        sns.histplot(data=melted_data, x="value", ax=axes_flat[i], stat=stat, bins=bins)
+
+        axes_flat[i].set_title("dist of var " + var)
+        axes_flat[i].set_xlabel(var)
+        axes_flat[i].set_ylabel(stat)
+
+    # Remove extra subplots if any
+    for j in range(i + 1, len(axes_flat)):
+        fig.delaxes(axes_flat[j])
+
+    plt.suptitle("MCMC distribution")
+    plt.tight_layout()
+    plt.show()
+
+
+def mcmc_dens(vars_n_chains: pd.DataFrame, individual_chains: str = True):
+    """
+    Create histplots for MCMC sampling results in a grid.
+
+    Parameters:
+    -----------
+    vars_n_chains : pd.DataFrame
+        DataFrame from MCMC_STAN with columns: chain_{i}, sample_nr, var_name, is_warmup
+    individual_chains: bool
+        if true each chain is plotted as hue
+    """
+
+    # Get unique variables
+    unique_vars = vars_n_chains["var_name"].unique()
+
+    # Calculate grid dimensions
+    num_vars = len(unique_vars)
+    num_cols = int(min(3, num_vars))
+    num_rows = int(np.ceil(num_vars / num_cols))
+
+    # Create subplots
+    fig, axes = plt.subplots(
+        nrows=num_rows,
+        ncols=num_cols,
+        figsize=(7 * num_cols, 4 * num_rows),
+        squeeze=False,
+    )
+
+    # Flatten axes for easier indexing
+    axes_flat = axes.flatten()
+
+    # Plot each variable
+    for i, var in enumerate(unique_vars):
+        var_data = vars_n_chains[vars_n_chains["var_name"] == var]
+
+        # Select chain columns
+        chain_cols = [col for col in var_data.columns if col.startswith("chain_")]
+
+        # Melt the DataFrame for seaborn
+        melted_data = var_data.melt(
+            id_vars=["sample_nr", "is_warmup"],
+            value_vars=chain_cols,
+            var_name="chain",
+            value_name="value",
+        )
+
+        # Create trace plot
+        sns.kdeplot(
+            data=melted_data,
+            x="value",
+            ax=axes_flat[i],
+            hue="chain" if individual_chains else None,
+            common_norm=False,
+        )
+
+        axes_flat[i].set_title("dist of var " + var)
+        axes_flat[i].set_xlabel(var)
+        axes_flat[i].set_ylabel("density")
+
+    # Remove extra subplots if any
+    for j in range(i + 1, len(axes_flat)):
+        fig.delaxes(axes_flat[j])
+
+    plt.suptitle("MCMC distribution")
+    plt.tight_layout()
+    plt.show()
+
+
+def neff_ratio(vars_n_chains: pd.DataFrame, filter_warmup: bool = True) -> pd.DataFrame:
+    """
+    Calculate the effective sample size (ESS) ratio for MCMC sampling results.
+
+    Parameters:
+    -----------
+    vars_n_chains : pd.DataFrame
+        DataFrame from mcmc_stan with columns: chain_{i}, sample_nr, var_name, is_warmup
+    filter_warmup : bool
+        if true the warmup samples are getting filtered out
+
+    Returns:
+    --------
+    pd.DataFrame
+        Effective sample size ratio for each variable
+    """
+
+    # Filter out warmup samples
+    samples = (
+        vars_n_chains[~vars_n_chains["is_warmup"]] if filter_warmup else vars_n_chains
+    )
+
+    # Prepare results DataFrame
+    results = []
+
+    # Get unique variables
+    unique_vars = samples["var_name"].unique()
+
+    for var in unique_vars:
+        # Filter data for current variable
+        var_data = samples[samples["var_name"] == var]
+
+        # Select chain columns
+        chain_cols = [col for col in var_data.columns if col.startswith("chain_")]
+
+        # Calculate diagnostics for each parameter
+        n_samples = len(var_data)
+        n_chains = len(chain_cols)
+
+        # Calculate within-chain and between-chain variance
+        chain_means = var_data[chain_cols].mean()
+        within_chain_var = var_data[chain_cols].var(ddof=1).mean()
+        between_chain_var = n_samples / (n_chains - 1) * chain_means.var(ddof=1)
+
+        # Estimate of marginal posterior variance
+        marginal_var = (
+            (n_samples - 1) / n_samples
+        ) * within_chain_var + between_chain_var / n_chains
+
+        # Effective sample size (ESS)
+        if marginal_var > 0:
+            ess = (n_samples * n_chains * within_chain_var) / marginal_var
+            # ESS ratio relative to total number of samples
+            ess_ratio = ess / (n_samples * n_chains)
+        else:
+            ess = 0
+            ess_ratio = 0
+
+        # Store results
+        results.append(
+            {
+                "var_name": var,
+                "n_samples": n_samples,
+                "n_chains": n_chains,
+                "ess": ess,
+                "ess_ratio": ess_ratio,
+            }
+        )
+
+    # Convert to DataFrame
+    return pd.DataFrame(results).set_index("var_name")
+
+
+def mcmc_acf(vars_n_chains: pd.DataFrame, lags: int = 20, filter_warmup: bool = True):
+    """
+    Calculate and plot autocorrelation for MCMC sampling results.
+
+    Parameters:
+    -----------
+    vars_n_chains : pd.DataFrame
+        DataFrame from mcmc_stan with columns: chain_{i}, sample_nr, var_name, is_warmup
+    lags : int, optional
+        Maximum number of lags to calculate (default: 20)
+    filter_warmup : bool
+        if true the warmup samples are getting filtered out
+    """
+
+    # Filter out warmup samples
+    samples = (
+        vars_n_chains[~vars_n_chains["is_warmup"]] if filter_warmup else vars_n_chains
+    )
+
+    # Get unique variables
+    unique_vars = samples["var_name"].unique()
+
+    # Calculate grid dimensions
+    num_vars = len(unique_vars)
+    num_cols = min(3, num_vars)
+    num_rows = int(np.ceil(num_vars / num_cols))
+
+    # Create subplots
+    fig, axes = plt.subplots(
+        nrows=num_rows,
+        ncols=num_cols,
+        figsize=(7 * num_cols, 4 * num_rows),
+        squeeze=False,
+    )
+    axes_flat = axes.flatten()
+
+    # Store autocorrelation results
+    acf_results = {}
+
+    # Plot for each variable
+    for i, var in enumerate(unique_vars):
+        # Filter data for current variable
+        var_data = samples[samples["var_name"] == var]
+
+        # Select chain columns
+        chain_cols = [col for col in var_data.columns if col.startswith("chain_")]
+
+        # Calculate autocorrelation for each chain
+        chain_acf = []
+        for chain_col in chain_cols:
+            chain_samples = var_data[chain_col]
+
+            # Calculate autocorrelation
+            acf = np.correlate(
+                chain_samples - chain_samples.mean(),
+                chain_samples - chain_samples.mean(),
+                mode="full",
+            )[len(chain_samples) - 1 :]
+
+            # Normalize
+            acf /= acf[0]
+            chain_acf.append(acf[: lags + 1])
+
+        # Average across chains
+        avg_acf = np.mean(chain_acf, axis=0)
+        acf_results[var] = avg_acf
+
+        # Plot
+        axes_flat[i].stem(range(len(avg_acf)), avg_acf)
+        axes_flat[i].set_title(f"ACF for {var}")
+        axes_flat[i].set_xlabel("Lag")
+        axes_flat[i].set_ylabel("Autocorrelation")
+        axes_flat[i].axhline(y=0, color="r", linestyle="--")
+
+    # Remove extra subplots
+    for j in range(i + 1, len(axes_flat)):
+        fig.delaxes(axes_flat[j])
+
+    plt.suptitle("MCMC Autocorrelation")
+    plt.tight_layout()
+    plt.show()
+
+
+def rhat(vars_n_chains: pd.DataFrame, filter_warmup: bool = True) -> pd.DataFrame:
+    """
+    Calculate R-hat (Gelman-Rubin statistic) for MCMC sampling results.
+
+    Parameters:
+    -----------
+    vars_n_chains : pd.DataFrame
+        DataFrame from mcmc_stan with columns: chain_{i}, sample_nr, var_name, is_warmup
+    filter_warmup : bool
+        if true the warmup samples are getting filtered out
+
+    Returns:
+    --------
+    pd.DataFrame
+        R-hat values for each parameter
+    """
+
+    # Filter out warmup samples
+    samples = (
+        vars_n_chains[~vars_n_chains["is_warmup"]] if filter_warmup else vars_n_chains
+    )
+
+    # Prepare results list
+    results = []
+
+    # Get unique variables
+    unique_vars = samples["var_name"].unique()
+
+    for var in unique_vars:
+        # Filter data for current variable
+        var_data = samples[samples["var_name"] == var]
+
+        # Select chain columns
+        chain_cols = [col for col in var_data.columns if col.startswith("chain_")]
+
+        # Ensure we have multiple chains
+        if len(chain_cols) < 2:
+            results.append(
+                {"var_name": var, "rhat": np.nan, "n_chains": len(chain_cols)}
+            )
+            continue
+
+        # Calculate chain-wise statistics
+        chain_means = var_data[chain_cols].mean()
+        chain_vars = var_data[chain_cols].var(ddof=1)
+
+        # Overall mean
+        overall_mean = chain_means.mean()
+
+        # Between-chain variance
+        B = (
+            len(var_data)
+            / (len(chain_cols) - 1)
+            * sum((chain_means - overall_mean) ** 2)
+        )
+
+        # Within-chain variance
+        W = chain_vars.mean()
+
+        # Marginal posterior variance estimate
+        # Add small constant to prevent division by zero
+        var_est = ((len(var_data) - 1) / len(var_data)) * W + (B / len(var_data))
+
+        # R-hat calculation
+        rhat_val = np.sqrt(var_est / (W + 1e-10))
+
+        # Store results
+        results.append({"var_name": var, "rhat": rhat_val, "n_chains": len(chain_cols)})
+
+    # Convert to DataFrame
+    return pd.DataFrame(results).set_index("var_name")
