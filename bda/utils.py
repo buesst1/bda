@@ -379,3 +379,276 @@ def summarize_gamma_poisson(shape: float, rate: float, sum_y: int, n: int):
     summary.index.name = "model"
 
     return summary
+
+
+# Normal-Normal
+def plot_normal_prior(mean: float, sd: float):
+    """
+    Plot the Normal (Gaussian) distribution as a prior.
+
+    Parameters
+    ----------
+    mean : float
+        Mean of the Normal distribution.
+    sd : float
+        Standard deviation of the Normal distribution.
+    """
+
+    # Calculate the x-range based on quantiles (1e-05 and 0.99999)
+    x_min = stats.norm.ppf(1e-05, loc=mean, scale=sd)
+    x_max = stats.norm.ppf(0.99999, loc=mean, scale=sd)
+
+    # Generate the x values
+    x = np.linspace(x_min, x_max, 1000)
+
+    # Calculate the Normal PDF
+    y = stats.norm.pdf(x, loc=mean, scale=sd)
+
+    # Plot
+    plt.figure(figsize=(8, 5))
+    plt.plot(x, y, label=f"Normal(mean={mean}, sd={sd})")
+    plt.title("Normal Prior")
+    plt.xlabel("μ")
+    plt.ylabel("Density")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+
+def plot_normal_likelihood(y: np.ndarray, sigma: float):
+    """
+    Plot the joint likelihood of the Normal distribution for given data (y)
+    and a known standard deviation (sigma). The parameter of interest here is
+    the mean (mu).
+
+    Parameters
+    ----------
+    y : np.ndarray
+        Array of observed data.
+    sigma : float
+        Known standard deviation of the Normal distribution.
+    """
+
+    # Calculate summary statistics
+    y_mean = np.mean(y)
+    y_sd = np.std(y, ddof=1)  # sample standard deviation
+    n = len(y)
+
+    # Calculate search range for mu
+    x_min = y_mean - 4 * y_sd / np.sqrt(n)
+    x_max = y_mean + 4 * y_sd / np.sqrt(n)
+
+    # Create grid for mu values
+    mus = np.linspace(x_min, x_max, 1000)
+
+    # Calculate the (unscaled) joint likelihood for each mu in the grid
+    likelihoods = []
+    for mu in mus:
+        # Joint likelihood under Normal with mean=mu and std=sigma
+        joint_likelihood = np.prod(stats.norm.pdf(y, loc=mu, scale=sigma))
+        likelihoods.append(joint_likelihood)
+
+    # Convert to numpy array
+    likelihoods = np.array(likelihoods)
+
+    # Scale the likelihood for plotting
+    # Here, we use trapezoidal numerical integration to scale the curve
+    area = np.trapezoid(likelihoods, mus)
+    if area > 0:
+        likelihoods /= area
+
+    # Plot
+    plt.figure(figsize=(8, 5))
+    plt.plot(mus, likelihoods, label="Scaled Joint Likelihood")
+    plt.title("Normal Joint Likelihood")
+    plt.xlabel("μ")
+    plt.ylabel("Likelihood")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+
+def plot_normal_normal(
+    prior_mean: float, prior_sd: float, y_sigma: float, y_mean: float, n: int
+):
+    """
+    Plot the prior, scaled likelihood, and posterior for a Normal-Normal model.
+
+    Parameters
+    ----------
+    prior_mean : float
+        Mean of the prior distribution (Normal).
+    prior_sd : float
+        Standard deviation of the prior distribution (Normal).
+    y_sigma : float
+        Known standard deviation of each observation in the data.
+    y_mean : float
+        Sample mean of the observed data.
+    n : int
+        Number of observations in the sample.
+    """
+
+    # ----------------------------
+    # 1) Compute posterior parameters
+    # ----------------------------
+    # Posterior variance and mean for mu | (y_mean)
+    post_var = 1.0 / (1.0 / (prior_sd**2) + n / (y_sigma**2))
+    post_sd = np.sqrt(post_var)
+    post_mean = post_var * (prior_mean / (prior_sd**2) + (n * y_mean) / (y_sigma**2))
+
+    # ----------------------------
+    # 2) Likelihood distribution
+    # ----------------------------
+    # For the sample mean y_mean, the likelihood for mu is:
+    # L(mu) ∝ Normal(y_mean | mu, (y_sigma^2 / n))
+    # The standard deviation of y_mean is y_sigma / sqrt(n).
+    like_sd = y_sigma / np.sqrt(n)
+
+    # ----------------------------
+    # 3) Determine plotting range
+    #    We'll capture the central mass from:
+    #      - the prior
+    #      - the posterior
+    #      - the "likelihood" distribution (centered at y_mean)
+    #    using the normal ppf at 1e-5 and 0.99999
+    # ----------------------------
+    x_min = min(
+        stats.norm.ppf(1e-5, loc=prior_mean, scale=prior_sd),
+        stats.norm.ppf(1e-5, loc=post_mean, scale=post_sd),
+        stats.norm.ppf(1e-5, loc=y_mean, scale=like_sd),
+    )
+    x_max = max(
+        stats.norm.ppf(0.99999, loc=prior_mean, scale=prior_sd),
+        stats.norm.ppf(0.99999, loc=post_mean, scale=post_sd),
+        stats.norm.ppf(0.99999, loc=y_mean, scale=like_sd),
+    )
+
+    x = np.linspace(x_min, x_max, 1000)
+
+    # ----------------------------
+    # 4) Compute PDFs
+    # ----------------------------
+    # Prior PDF
+    prior_pdf = stats.norm.pdf(x, loc=prior_mean, scale=prior_sd)
+
+    # Likelihood PDF (in terms of mu, centered at y_mean)
+    # We'll scale it so the area is comparable to a PDF for the plot
+    like_pdf_raw = stats.norm.pdf(y_mean, loc=x, scale=like_sd)
+    # Use trapezoid to normalize
+    like_area = np.trapezoid(like_pdf_raw, x)
+    if like_area > 0:
+        like_pdf = like_pdf_raw / like_area
+    else:
+        like_pdf = like_pdf_raw  # fallback if area is zero or extremely small
+
+    # Posterior PDF
+    post_pdf = stats.norm.pdf(x, loc=post_mean, scale=post_sd)
+
+    # ----------------------------
+    # 5) Plot: Prior, scaled likelihood, posterior
+    # ----------------------------
+    plt.figure(figsize=(10, 6))
+    plt.plot(x, prior_pdf, "r--", label="Prior")
+    plt.plot(x, like_pdf, "g:", label="Scaled Likelihood")
+    plt.plot(x, post_pdf, "b-", label="Posterior")
+
+    plt.title("Normal-Normal Analysis")
+    plt.xlabel("μ")
+    plt.ylabel("Density")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+
+def summarize_normal(mean: float, sd: float) -> pd.DataFrame:
+    """
+    Summarize a Normal distribution given its mean and standard deviation.
+
+    Parameters
+    ----------
+    mean : float
+        Mean (μ) of the Normal distribution.
+    sd : float
+        Standard deviation (τ) of the Normal distribution.
+
+    Returns
+    -------
+    pd.DataFrame
+        Summary statistics for the Normal distribution, including
+        mean, mode, variance, and standard deviation.
+    """
+    var = sd**2
+    mode = mean  # For a Normal(μ, σ²), the mode = mean
+
+    summary = pd.DataFrame(
+        {
+            "mean": [mean],
+            "mode": [mode],
+            "var": [var],
+            "sd": [sd],
+        },
+        index=["Normal Distribution"],
+    )
+    summary.index.name = "distribution"
+
+    return summary
+
+
+def summarize_normal_normal(
+    prior_mean: float, prior_sd: float, y_sigma: float, y_mean: float, n: int
+) -> pd.DataFrame:
+    """
+    Summarize the prior and posterior Normal distributions for a Normal–Normal model.
+
+    Parameters
+    ----------
+    prior_mean : float
+        Mean (μ) of the prior Normal distribution.
+    prior_sd : float
+        Standard deviation (τ) of the prior Normal distribution.
+    y_sigma : float
+        Known standard deviation (σ) of the observations.
+    y_mean : float
+        Sample mean of the observed data (ȳ).
+    n : int
+        Number of observations.
+
+    Returns
+    -------
+    pd.DataFrame
+        Summary statistics for the prior and posterior distributions,
+        including mean, mode, variance, and standard deviation.
+    """
+    # ----------------------------
+    # Prior
+    # ----------------------------
+    prior_var = prior_sd**2
+    prior_mode = prior_mean  # mode = mean for a Normal distribution
+
+    # ----------------------------
+    # Posterior (Normal-Normal Conjugacy)
+    # ----------------------------
+    # Posterior variance = [ 1/σ₀² + n/σ² ]⁻¹
+    post_var = 1.0 / (1.0 / prior_var + n / (y_sigma**2))
+    post_sd = np.sqrt(post_var)
+    # Posterior mean = post_var * [ (μ₀ / σ₀²) + (n * ȳ / σ²) ]
+    post_mean = post_var * ((prior_mean / prior_var) + (n * y_mean) / (y_sigma**2))
+    post_mode = post_mean  # For a Normal, the mode = mean
+
+    # ----------------------------
+    # Build the DataFrame
+    # ----------------------------
+    summary = pd.DataFrame(
+        {
+            "mean": [prior_mean, post_mean],
+            "mode": [prior_mode, post_mode],
+            "var": [prior_var, post_var],
+            "sd": [prior_sd, post_sd],
+        },
+        index=["prior", "posterior"],
+    )
+    summary.index.name = "model"
+
+    return summary
+
+
