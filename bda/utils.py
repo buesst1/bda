@@ -1165,3 +1165,260 @@ def rhat(vars_n_chains: pd.DataFrame, filter_warmup: bool = True) -> pd.DataFram
 
     # Convert to DataFrame
     return pd.DataFrame(results).set_index("var_name")
+
+
+# Metropolis-Hastings MCMC
+def one_mh_iteration(
+    proposal_model_gen: callable, prior_mul_likelihood: callable, current_loc: float
+) -> pd.DataFrame:
+    """
+    Perform one iteration of the Metropolis-Hastings algorithm for sampling.
+
+    This function implements the core Metropolis-Hastings sampling step, which
+    decides whether to accept or reject a proposed location based on its likelihood
+    and the proposal distribution.
+
+    Parameters
+    ----------
+    proposal_model_gen : callable
+        A function that generates a probability distribution (proposal model)
+        centered at a given location.
+
+    prior_mul_likelihood : callable
+        A function that calculates the unnormalized likelihood (prior * likelihood)
+        for a given location.
+
+    current_loc : float
+        The current location in the sampling process.
+
+    Returns
+    -------
+    DataFrame
+        The selected location after the Metropolis-Hastings iteration
+        (either the proposed or current location) with alpha and proposed location.
+
+    Notes
+    -----
+    The algorithm works by:
+    1. Generating a proposal from a proposal distribution
+    2. Calculating the acceptance probability based on likelihood ratios
+    3. Randomly accepting or rejecting the proposal
+    """
+
+    # Generate proposal distribution centered at current location
+    proposal_model = proposal_model_gen(current_loc)
+
+    # Sample a new location from the proposal distribution
+    proposed_loc = proposal_model.rvs(1)[0]
+
+    # Generate proposal distribution for the proposed location
+    proposal_model_proposed = proposal_model_gen(proposed_loc)
+
+    # Calculate likelihoods for current and proposed locations
+    current_loc_likelihood = prior_mul_likelihood(current_loc)
+    proposed_loc_likelihood = prior_mul_likelihood(proposed_loc)
+
+    # Calculate proposal probabilities for reverse transitions
+    proba_current_loc = proposal_model_proposed.pdf(current_loc)
+    proba_proposed_loc = proposal_model.pdf(proposed_loc)
+
+    # Compute acceptance probability (Metropolis-Hastings ratio)
+    acceptance_ratio = (proposed_loc_likelihood / current_loc_likelihood) * (
+        proba_current_loc / proba_proposed_loc
+    )
+    alpha = min(1, acceptance_ratio)
+
+    # Randomly accept or reject the proposed location
+    next_loc = np.random.choice([proposed_loc, current_loc], p=[alpha, 1 - alpha])
+
+    # return dataframe
+    return pd.DataFrame(
+        {"proposal": [proposed_loc], "alpha": [alpha], "next_loc": [next_loc]}
+    )
+
+
+def mh_tour(
+    proposal_model_gen: callable,
+    prior_mul_likelihood: callable,
+    initial_loc: float,
+    num_iterations: int,
+) -> pd.DataFrame:
+    """
+    Perform a Metropolis-Hastings sampling tour.
+
+    Parameters
+    ----------
+    proposal_model_gen : callable
+        Function generating proposal distribution for a location.
+
+    prior_mul_likelihood : callable
+        Function calculating unnormalized likelihood for a location.
+
+    initial_loc : float
+        Starting location for the Markov chain.
+
+    num_iterations : int
+        Number of iterations to perform.
+
+    Returns
+    -------
+    pd.DataFrame
+        Concatenated trace of Metropolis-Hastings iterations.
+    """
+    # Initialize trace with initial location
+    current_loc = initial_loc
+    trace = []
+
+    # Perform Metropolis-Hastings iterations
+    for _ in range(num_iterations):
+        # Perform one iteration and store result
+        iteration_result = one_mh_iteration(
+            proposal_model_gen, prior_mul_likelihood, current_loc
+        )
+        trace.append(iteration_result)
+
+        # Update current location for next iteration
+        current_loc = iteration_result["next_loc"].values[0]
+
+    # Concatenate all iteration results
+    return pd.concat(trace, ignore_index=True)
+
+
+def MH_MCMC_uniform_proposal(
+    prior_mul_likelihood: callable,
+    half_width: float = 0.1,
+    initial_loc: float = 1e-5,
+    num_iterations: int = 1000,
+    num_chains: int = 4,
+    num_warmup: int = 500,
+) -> list:
+    """
+    Perform Metropolis-Hastings MCMC sampling with uniform proposal distribution.
+
+    Parameters
+    ----------
+    prior_mul_likelihood : callable
+        Function calculating unnormalized likelihood for a location.
+
+    half_width : float
+        Half-width of uniform proposal distribution.
+
+    initial_loc : float
+        Starting location for each Markov chain.
+
+    num_iterations : int
+        Number of iterations per chain.
+
+    num_chains : int
+        Number of independent Markov chains to run.
+
+    num_warmup : int
+        Number of warmup steps (gets deleted)
+
+    Returns
+    -------
+    list
+        List of DataFrames, each representing a chain's trace.
+    """
+
+    def uniform_proposal_gen(loc):
+        """Generate uniform proposal distribution centered at given location."""
+        return stats.uniform(loc - half_width, 2 * half_width)
+
+    # Run multiple chains
+    traces = []
+    for i in range(num_chains):
+        # create a tour
+        chain_trace = mh_tour(
+            uniform_proposal_gen,
+            prior_mul_likelihood,
+            initial_loc,
+            num_iterations + num_warmup,
+        )[["next_loc"]]
+
+        chain_trace.columns = [f"chain_{i}"]
+
+        # append chain
+        traces.append(chain_trace)
+
+    # concat chains
+    traces = pd.concat(traces, axis=1)
+
+    # cut off warmup steps
+    traces = traces.iloc[num_warmup:].reset_index(drop=True)
+
+    traces["sample_nr"] = range(len(traces))
+    traces["var_name"] = "pi"
+    traces["is_warmup"] = False
+
+    return traces
+
+
+def MH_MCMC_uniform_independence_sampling(
+    prior_mul_likelihood: callable,
+    min_max: tuple = (0, 1),
+    initial_loc: float = 0.5,
+    num_iterations: int = 1000,
+    num_chains: int = 4,
+    num_warmup: int = 500,
+) -> list:
+    """
+    Perform Metropolis-Hastings MCMC independence sampling alogorithm (proposal model doesn't depend on current location).
+
+    Parameters
+    ----------
+    prior_mul_likelihood : callable
+        Function calculating unnormalized likelihood for a location.
+
+    min_max : tuple
+        Min max of uniform model
+
+    initial_loc : float
+        Starting location for each Markov chain.
+
+    num_iterations : int
+        Number of iterations per chain.
+
+    num_chains : int
+        Number of independent Markov chains to run.
+
+    num_warmup : int
+        Number of warmup steps (gets deleted)
+
+    Returns
+    -------
+    list
+        List of DataFrames, each representing a chain's trace.
+    """
+
+    def uniform_proposal_gen(loc):
+        """Generate uniform proposal distribution between min and max"""
+        return stats.uniform(min_max[0], min_max[1])
+
+    # Run multiple chains
+    traces = []
+    for i in range(num_chains):
+        # create a tour
+        chain_trace = mh_tour(
+            uniform_proposal_gen,
+            prior_mul_likelihood,
+            initial_loc,
+            num_iterations + num_warmup,
+        )[["next_loc"]]
+
+        chain_trace.columns = [f"chain_{i}"]
+
+        # append chain
+        traces.append(chain_trace)
+
+    # concat chains
+    traces = pd.concat(traces, axis=1)
+
+    # cut off warmup steps
+    traces = traces.iloc[num_warmup:].reset_index(drop=True)
+
+    traces["sample_nr"] = range(len(traces))
+    traces["var_name"] = "pi"
+    traces["is_warmup"] = False
+
+    return traces
