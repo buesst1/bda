@@ -1422,3 +1422,252 @@ def MH_MCMC_uniform_independence_sampling(
     traces["is_warmup"] = False
 
     return traces
+
+
+# Posterior Inference & Prediction
+## Posterior Estimation
+def quantiles_beta(alpha: float, beta: float, quantiles: np.ndarray):
+    """
+    Calculate quantiles for a Beta distribution.
+
+    Parameters:
+    -----------
+    alpha : float
+        Alpha parameter of the Beta distribution
+    beta : float
+        Beta parameter of the Beta distribution
+    quantiles : np.ndarray
+        Array of probabilities for which to compute quantiles
+
+    Returns:
+    --------
+    np.ndarray
+        Quantile values corresponding to the input probabilities
+    """
+
+    return stats.beta.ppf(quantiles, alpha, beta)
+
+
+def quantiles_gamma(shape: float, rate: float, quantiles: np.ndarray):
+    """
+    Calculate quantiles for a Gamma distribution.
+
+    Parameters:
+    -----------
+    shape : float
+        Shape parameter of the Gamma distribution
+    rate : float
+        Rate parameter of the Gamma distribution
+    quantiles : np.ndarray
+        Array of probabilities for which to compute quantiles
+
+    Returns:
+    --------
+    np.ndarray
+        Quantile values corresponding to the input probabilities
+    """
+
+    return stats.gamma.ppf(quantiles, shape, scale=1 / rate)
+
+
+def quantiles_normal(mean: float, sd: float, quantiles: np.ndarray):
+    """
+    Calculate quantiles for a Normal distribution.
+
+    Parameters:
+    -----------
+    mean : float
+        Mean of the Normal distribution
+    sd : float
+        Standard deviation of the Normal distribution
+    quantiles : np.ndarray
+        Array of probabilities for which to compute quantiles
+
+    Returns:
+    --------
+    np.ndarray
+        Quantile values corresponding to the input probabilities
+    """
+
+    return stats.norm.ppf(quantiles, loc=mean, scale=sd)
+
+
+def proba_beta(
+    alpha: float,
+    beta: float,
+    pi_l_than: float = None,
+    pi_between: np.ndarray = None,
+    pi_h_than: float = None,
+):
+    """
+    Calculate probabilities for different regions of a Beta distribution.
+
+    Parameters:
+    -----------
+    alpha : float
+        Alpha parameter of the Beta distribution
+    beta : float
+        Beta parameter of the Beta distribution
+    pi_l_than : float, optional
+        Upper bound for "less than" probability
+    pi_between : np.ndarray, optional
+        Array of [lower, upper] bounds for "between" probability
+    pi_h_than : float, optional
+        Lower bound for "higher than" probability
+
+    Returns:
+    --------
+    tuple
+        (P(X < pi_l_than), P(pi_between[0] < X < pi_between[1]), P(X > pi_h_than))
+        Returns None for any probability where the corresponding input is None
+    """
+
+    # Validate pi_between if provided
+    if pi_between is not None:
+        if len(pi_between) != 2:
+            raise ValueError("pi_between must be an array of exactly 2 values")
+
+    # Calculate requested probabilities
+    p_less = stats.beta.cdf(pi_l_than, alpha, beta) if pi_l_than is not None else None
+
+    p_between = (
+        (
+            stats.beta.cdf(pi_between[1], alpha, beta)
+            - stats.beta.cdf(pi_between[0], alpha, beta)
+        )
+        if pi_between is not None
+        else None
+    )
+
+    p_higher = (
+        (1 - stats.beta.cdf(pi_h_than, alpha, beta)) if pi_h_than is not None else None
+    )
+
+    return p_less, p_between, p_higher
+
+
+def proba_gamma(
+    shape: float,
+    rate: float,
+    pi_l_than: float = None,
+    pi_between: np.ndarray = None,
+    pi_h_than: float = None,
+):
+    """
+    Calculate probabilities for different regions of a Gamma distribution.
+
+    Parameters:
+    -----------
+    shape : float
+        Shape parameter of the Gamma distribution
+    rate : float
+        Rate parameter of the Gamma distribution
+    pi_l_than : float, optional
+        Upper bound for "less than" probability
+    pi_between : np.ndarray, optional
+        Array of [lower, upper] bounds for "between" probability
+    pi_h_than : float, optional
+        Lower bound for "higher than" probability
+
+    Returns:
+    --------
+    tuple
+        (P(X < pi_l_than), P(pi_between[0] < X < pi_between[1]), P(X > pi_h_than))
+        Returns None for any probability where the corresponding input is None
+    """
+
+    # Validate pi_between if provided
+    if pi_between is not None:
+        if len(pi_between) != 2:
+            raise ValueError("pi_between must be an array of exactly 2 values")
+
+    # Calculate requested probabilities
+    p_less = (
+        stats.gamma.cdf(pi_l_than, shape, scale=1 / rate)
+        if pi_l_than is not None
+        else None
+    )
+
+    p_between = (
+        (
+            stats.gamma.cdf(pi_between[1], shape, scale=1 / rate)
+            - stats.gamma.cdf(pi_between[0], shape, scale=1 / rate)
+        )
+        if pi_between is not None
+        else None
+    )
+
+    p_higher = (
+        (1 - stats.gamma.cdf(pi_h_than, shape, scale=1 / rate))
+        if pi_h_than is not None
+        else None
+    )
+
+    return p_less, p_between, p_higher
+
+
+def proba_normal(
+    mean: float,
+    sd: float,
+    pi_l_than: float = None,
+    pi_between: np.ndarray = None,
+    pi_h_than: float = None,
+):
+    """
+    Calculate probabilities for different regions of a Normal distribution.
+
+    Parameters:
+    -----------
+    mean : float
+        Mean of the Normal distribution
+    sd : float
+        Standard deviation of the Normal distribution
+    pi_l_than : float, optional
+        Upper bound for "less than" probability
+    pi_between : np.ndarray, optional
+        Array of [lower, upper] bounds for "between" probability
+    pi_h_than : float, optional
+        Lower bound for "higher than" probability
+
+    Returns:
+    --------
+    tuple
+        (P(X < pi_l_than), P(pi_between[0] < X < pi_between[1]), P(X > pi_h_than))
+        Returns None for any probability where the corresponding input is None
+    """
+
+    # Validate pi_between if provided
+    if pi_between is not None:
+        if len(pi_between) != 2:
+            raise ValueError("pi_between must be an array of exactly 2 values")
+
+    # Calculate requested probabilities
+    p_less = (
+        stats.norm.cdf(pi_l_than, loc=mean, scale=sd) if pi_l_than is not None else None
+    )
+
+    p_between = (
+        (
+            stats.norm.cdf(pi_between[1], loc=mean, scale=sd)
+            - stats.norm.cdf(pi_between[0], loc=mean, scale=sd)
+        )
+        if pi_between is not None
+        else None
+    )
+
+    p_higher = (
+        (1 - stats.norm.cdf(pi_h_than, loc=mean, scale=sd))
+        if pi_h_than is not None
+        else None
+    )
+
+    return p_less, p_between, p_higher
+
+
+## posterior hypothesis testing
+def odds(p_Ha: float):
+    return p_Ha / (1 - p_Ha)
+
+
+def bayes_factor(odds_posterior: float, odds_prior: float):
+    return odds_posterior / odds_prior
