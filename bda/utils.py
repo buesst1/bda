@@ -1969,7 +1969,9 @@ def fit_glm(
     - priors (Optional[Dict[str, bmb.Prior]]): A dictionary specifying priors for the model parameters.
 
     Returns:
-    - pd.DataFrame: A concatenated DataFrame containing the sampling results for all parameters.
+    - pd.DataFrame: A concatenated DataFrame containing the sampling results for all parameters,
+                    including information about the chain, sample number, variable name, and
+                    whether the sample is part of the warmup.
     """
 
     # Create the model, including priors if provided
@@ -1977,7 +1979,7 @@ def fit_glm(
         formula=formula, data=data, family=family, auto_scale=auto_scale, priors=priors
     )
 
-    # Fit the model
+    # Fit the model using MCMC sampling
     fit = model.fit(
         draws=num_samples,
         tune=num_warmup,
@@ -1986,39 +1988,50 @@ def fit_glm(
         random_seed=random_seed,
     )
 
+    # Convert the fit results to a DataFrame
     df = fit.to_dataframe()
 
+    # Ensure all column names are tuples for MultiIndex compatibility
     df.columns = [col if isinstance(col, tuple) else (col, "") for col in df.columns]
     multi_index = pd.MultiIndex.from_tuples(df.columns)
 
-    # Zuweisen des MultiIndex zu den Spalten
+    # Assign the MultiIndex to the DataFrame columns
     df.columns = multi_index
 
     if save_warmup:
+        # Extract warmup samples from the DataFrame
         df_warmup = df[["chain", "draw", "warmup_posterior"]].copy()
         df_warmup = df_warmup.dropna()
         df_warmup = df_warmup.rename(columns={"warmup_posterior": "posterior"}, level=0)
 
+        # Adjust the sample number for warmup samples
         df_warmup["draw"] -= num_warmup
 
+    # Select relevant columns: chain, draw, and posterior samples
     df = df[["chain", "draw", "posterior"]]
 
     if save_warmup:
+        # Concatenate warmup and posterior samples
         df = pd.concat([df_warmup, df], ignore_index=True)
 
+    # Flatten the MultiIndex columns
     df.columns = [col[0] if len(col[1]) == 0 else col[1] for col in df.columns]
 
+    # Transform the DataFrame to a long format with 'var_name' as a variable
     df = df.melt(id_vars=["chain", "draw"], var_name="var_name")
 
+    # Pivot the DataFrame to have chains as separate columns
     df = df.pivot(index=["var_name", "draw"], columns="chain").reset_index()
 
+    # Rename the chain columns for clarity
     df.columns = [
-        col[0] if len(str(col[1])) == 0 else "chain_" + str(col[1])
-        for col in df.columns
+        col[0] if len(str(col[1])) == 0 else f"chain_{col[1]}" for col in df.columns
     ]
 
+    # Rename the 'draw' column to 'sample_nr' for consistency
     df = df.rename(columns={"draw": "sample_nr"})
 
+    # Create a flag to indicate whether a sample is part of the warmup
     df["is_warmup"] = df.sample_nr < 0
 
     return df
