@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import stan
 import nest_asyncio
 import arviz as az
+from typing import Optional, Dict
+import bambi as bmb
 
 nest_asyncio.apply()
 
@@ -1936,3 +1938,87 @@ def odds(p_Ha: float):
 
 def bayes_factor(odds_posterior: float, odds_prior: float):
     return odds_posterior / odds_prior
+
+
+# Linear Regression
+def fit_glm(
+    formula: str,
+    data: pd.DataFrame,
+    family: str = "gaussian",
+    auto_scale: bool = False,
+    num_chains: int = 4,
+    num_samples: int = 10000,
+    num_warmup: int = 5000,
+    save_warmup: bool = False,
+    random_seed: int = 42,
+    priors: Optional[Dict[str, bmb.Prior]] = None,
+) -> pd.DataFrame:
+    """
+    Fits a Generalized Linear Model (GLM) using Bambi, with the option to specify priors.
+
+    Parameters:
+    - formula (str): The model formula, e.g., 'y ~ x1 + x2'.
+    - data (pd.DataFrame): The dataset to be used for modeling.
+    - family (str): The family distribution, e.g., 'gaussian', 'bernoulli', etc.
+    - auto_scale (bool): Whether to automatically scale the predictors.
+    - num_chains (int): Number of MCMC chains.
+    - num_samples (int): Number of samples per chain.
+    - num_warmup (int): Number of warmup (burn-in) samples per chain.
+    - save_warmup (bool): Whether to include warmup samples in the output.
+    - random_seed (int): Random seed for reproducibility.
+    - priors (Optional[Dict[str, bmb.Prior]]): A dictionary specifying priors for the model parameters.
+
+    Returns:
+    - pd.DataFrame: A concatenated DataFrame containing the sampling results for all parameters.
+    """
+
+    # Create the model, including priors if provided
+    model = bmb.Model(
+        formula=formula, data=data, family=family, auto_scale=auto_scale, priors=priors
+    )
+
+    # Fit the model
+    fit = model.fit(
+        draws=num_samples,
+        tune=num_warmup,
+        chains=num_chains,
+        discard_tuned_samples=not save_warmup,
+        random_seed=random_seed,
+    )
+
+    df = fit.to_dataframe()
+
+    df.columns = [col if isinstance(col, tuple) else (col, "") for col in df.columns]
+    multi_index = pd.MultiIndex.from_tuples(df.columns)
+
+    # Zuweisen des MultiIndex zu den Spalten
+    df.columns = multi_index
+
+    if save_warmup:
+        df_warmup = df[["chain", "draw", "warmup_posterior"]].copy()
+        df_warmup = df_warmup.dropna()
+        df_warmup = df_warmup.rename(columns={"warmup_posterior": "posterior"}, level=0)
+
+        df_warmup["draw"] -= num_warmup
+
+    df = df[["chain", "draw", "posterior"]]
+
+    if save_warmup:
+        df = pd.concat([df_warmup, df], ignore_index=True)
+
+    df.columns = [col[0] if len(col[1]) == 0 else col[1] for col in df.columns]
+
+    df = df.melt(id_vars=["chain", "draw"], var_name="var_name")
+
+    df = df.pivot(index=["var_name", "draw"], columns="chain").reset_index()
+
+    df.columns = [
+        col[0] if len(str(col[1])) == 0 else "chain_" + str(col[1])
+        for col in df.columns
+    ]
+
+    df = df.rename(columns={"draw": "sample_nr"})
+
+    df["is_warmup"] = df.sample_nr < 0
+
+    return df

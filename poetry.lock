@@ -222,6 +222,30 @@ tests = ["cloudpickle", "hypothesis", "mypy (>=1.11.1)", "pympler", "pytest (>=4
 tests-mypy = ["mypy (>=1.11.1)", "pytest-mypy-plugins"]
 
 [[package]]
+name = "bambi"
+version = "0.15.0"
+description = "BAyesian Model Building Interface in Python"
+optional = false
+python-versions = "<3.13,>=3.10"
+groups = ["main"]
+markers = "python_version == \"3.11\" or python_version >= \"3.12\""
+files = [
+    {file = "bambi-0.15.0-py3-none-any.whl", hash = "sha256:9d4f6291bee95cfc88a8855af920e087f2396542e208bc036ad8c340632596fd"},
+    {file = "bambi-0.15.0.tar.gz", hash = "sha256:597d0bd6b7b04fa7b2c94ab33fc4f408d4fb0c8dcea4ec9798c5c154b9bec56e"},
+]
+
+[package.dependencies]
+arviz = ">=0.12.0"
+formulae = ">=0.5.3"
+graphviz = "*"
+pandas = ">=1.0.0"
+pymc = ">=5.18.0"
+
+[package.extras]
+dev = ["black (==24.3.0)", "ipython (>=5.8.0,!=8.7.0)", "pre-commit (>=2.19)", "pylint (==3.1.0)", "pytest (>=4.4.0)", "pytest-cov (>=2.6.1)", "quartodoc (==0.9.1)", "seaborn (>=0.9.0)"]
+jax = ["bayeux-ml (==0.1.15)"]
+
+[[package]]
 name = "cachetools"
 version = "5.5.1"
 description = "Extensible memoizing collections and decorators"
@@ -674,6 +698,27 @@ unicode = ["unicodedata2 (>=15.1.0)"]
 woff = ["brotli (>=1.0.1)", "brotlicffi (>=0.8.0)", "zopfli (>=0.1.4)"]
 
 [[package]]
+name = "formulae"
+version = "0.5.4"
+description = "Formulas for mixed-effects models in Python"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+markers = "python_version == \"3.11\" or python_version >= \"3.12\""
+files = [
+    {file = "formulae-0.5.4-py3-none-any.whl", hash = "sha256:b6ee8150c1321f8c034e94e4a097f6af7c239d6d19a463c0398129e444e9b538"},
+    {file = "formulae-0.5.4.tar.gz", hash = "sha256:150c8ddf985234fb1f1f2b7471d299432efef43f54ea8524eee391b8929caa70"},
+]
+
+[package.dependencies]
+numpy = ">=1.16"
+pandas = ">=1.0.0"
+scipy = ">=1.5.4"
+
+[package.extras]
+dev = ["Sphinx (>=1.8.3)", "black (==22.3.0)", "docutils (<0.18)", "ipython", "jupyter-sphinx", "nbsphinx", "pydata-sphinx-theme (>=0.6.3)", "pylint (==2.17.5)", "pytest (==6.2.5)", "pytest-cov (>=2.6.1)"]
+
+[[package]]
 name = "frozenlist"
 version = "1.5.0"
 description = "A list-like structure which implements collections.abc.MutableSequence"
@@ -775,6 +820,24 @@ files = [
     {file = "frozenlist-1.5.0-py3-none-any.whl", hash = "sha256:d994863bba198a4a518b467bb971c56e1db3f180a25c6cf7bb1949c267f748c3"},
     {file = "frozenlist-1.5.0.tar.gz", hash = "sha256:81d5af29e61b9c8348e876d442253723928dce6433e0e76cd925cd83f1b4b817"},
 ]
+
+[[package]]
+name = "graphviz"
+version = "0.20.3"
+description = "Simple Python interface for Graphviz"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+markers = "python_version == \"3.11\" or python_version >= \"3.12\""
+files = [
+    {file = "graphviz-0.20.3-py3-none-any.whl", hash = "sha256:81f848f2904515d8cd359cc611faba817598d2feaac4027b266aa3eda7b3dde5"},
+    {file = "graphviz-0.20.3.zip", hash = "sha256:09d6bc81e6a9fa392e7ba52135a9d49f1ed62526f96499325930e87ca1b5925d"},
+]
+
+[package.extras]
+dev = ["flake8", "pep8-naming", "tox (>=3)", "twine", "wheel"]
+docs = ["sphinx (>=5,<7)", "sphinx-autodoc-typehints", "sphinx-rtd-theme"]
+test = ["coverage", "pytest (>=7,<8.1)", "pytest-cov", "pytest-mock (>=3)"]
 
 [[package]]
 name = "h5netcdf"
@@ -952,6 +1015,29 @@ test = ["packaging", "pickleshare", "pytest", "pytest-asyncio (<0.22)", "testpat
 test-extra = ["curio", "ipython[test]", "matplotlib (!=3.2.0)", "nbformat", "numpy (>=1.23)", "pandas", "trio"]
 
 [[package]]
+name = "ipywidgets"
+version = "8.1.5"
+description = "Jupyter interactive widgets"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+markers = "python_version == \"3.11\" or python_version >= \"3.12\""
+files = [
+    {file = "ipywidgets-8.1.5-py3-none-any.whl", hash = "sha256:3290f526f87ae6e77655555baba4f36681c555b8bdbbff430b70e52c34c86245"},
+    {file = "ipywidgets-8.1.5.tar.gz", hash = "sha256:870e43b1a35656a80c18c9503bbf2d16802db1cb487eec6fab27d683381dde17"},
+]
+
+[package.dependencies]
+comm = ">=0.1.3"
+ipython = ">=6.1.0"
+jupyterlab-widgets = ">=3.0.12,<3.1.0"
+traitlets = ">=4.3.1"
+widgetsnbextension = ">=4.0.12,<4.1.0"
+
+[package.extras]
+test = ["ipykernel", "jsonschema", "pytest (>=3.6.0)", "pytest-cov", "pytz"]
+
+[[package]]
 name = "jedi"
 version = "0.19.2"
 description = "An autocompletion tool for Python that can be used for text editors."
@@ -1017,6 +1103,19 @@ traitlets = ">=5.3"
 [package.extras]
 docs = ["myst-parser", "pydata-sphinx-theme", "sphinx-autodoc-typehints", "sphinxcontrib-github-alt", "sphinxcontrib-spelling", "traitlets"]
 test = ["ipykernel", "pre-commit", "pytest (<8)", "pytest-cov", "pytest-timeout"]
+
+[[package]]
+name = "jupyterlab-widgets"
+version = "3.0.13"
+description = "Jupyter interactive widgets for JupyterLab"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+markers = "python_version == \"3.11\" or python_version >= \"3.12\""
+files = [
+    {file = "jupyterlab_widgets-3.0.13-py3-none-any.whl", hash = "sha256:e3cda2c233ce144192f1e29914ad522b2f4c40e77214b0cc97377ca3d323db54"},
+    {file = "jupyterlab_widgets-3.0.13.tar.gz", hash = "sha256:a2966d385328c1942b683a8cd96b89b8dd82c8b8f81dda902bb2bc06d46f5bed"},
+]
 
 [[package]]
 name = "kiwisolver"
@@ -2575,6 +2674,19 @@ frameworks = ["Django (>=2.2.0)", "Flask (>=0.12.5)", "aiohttp (>=3.0.8)", "bott
 tests = ["pytest", "pytest-aiohttp (>=0.3.0)", "pytest-asyncio", "webargs[frameworks]", "webtest (==3.0.1)", "webtest-aiohttp (==2.0.0)"]
 
 [[package]]
+name = "widgetsnbextension"
+version = "4.0.13"
+description = "Jupyter interactive widgets for Jupyter Notebook"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+markers = "python_version == \"3.11\" or python_version >= \"3.12\""
+files = [
+    {file = "widgetsnbextension-4.0.13-py3-none-any.whl", hash = "sha256:74b2692e8500525cc38c2b877236ba51d34541e6385eeed5aec15a70f88a6c71"},
+    {file = "widgetsnbextension-4.0.13.tar.gz", hash = "sha256:ffcb67bc9febd10234a362795f643927f4e0c05d9342c727b65d2384f8feacb6"},
+]
+
+[[package]]
 name = "xarray"
 version = "2025.1.1"
 description = "N-D labeled arrays and datasets in Python"
@@ -2726,4 +2838,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.13"
-content-hash = "9eeb63eac919c349fbb5848f206c8471e28415f1e6c03376ce8e95f16efeed0d"
+content-hash = "83366c42e7257089656ea953ea9e6a665eab53024c3e9a97e280d3c2138599c8"
