@@ -738,37 +738,52 @@ def mcmc_stan(
     return pd.concat(dfs, ignore_index=True)
 
 
-def mcmc_trace(vars_n_chains: pd.DataFrame):
+def mcmc_trace(vars_n_chains: pd.DataFrame, variables=None):
     """
     Create trace plots for MCMC sampling results in a grid.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     vars_n_chains : pd.DataFrame
-        DataFrame from MCMC_STAN with columns: chain_{i}, sample_nr, var_name, is_warmup
+        DataFrame from MCMC_STAN with columns:
+          chain_{i}, sample_nr, var_name, is_warmup
+    variables : str or list of str, optional
+        If None (default), all unique variables will be plotted.
+        If a string, only that single variable is plotted.
+        If a list of strings, only those variables are plotted.
     """
-    # Get unique variables
-    unique_vars = vars_n_chains["var_name"].unique()
+    # 1. Decide which variables to plot
+    if variables is None:
+        plot_vars = vars_n_chains["var_name"].unique()
+    elif isinstance(variables, str):
+        plot_vars = [variables]
+    else:
+        # Assume it's an iterable of strings
+        plot_vars = variables
 
-    # Calculate grid dimensions
-    num_vars = len(unique_vars)
+    # 2. Calculate grid dimensions
+    num_vars = len(plot_vars)
     num_cols = int(min(3, num_vars))
     num_rows = int(np.ceil(num_vars / num_cols))
 
-    # Create subplots
+    # 3. Create subplots
     fig, axes = plt.subplots(
         nrows=num_rows,
         ncols=num_cols,
         figsize=(7 * num_cols, 4 * num_rows),
         squeeze=False,
     )
-
-    # Flatten axes for easier indexing
     axes_flat = axes.flatten()
 
-    # Plot each variable
-    for i, var in enumerate(unique_vars):
+    # 4. Plot each variable
+    for i, var in enumerate(plot_vars):
         var_data = vars_n_chains[vars_n_chains["var_name"] == var]
+        if var_data.empty:
+            # If this variable is not found, skip or show empty plot
+            axes_flat[i].set_title(f"{var} - no data")
+            axes_flat[i].set_xlabel("Sample Number")
+            axes_flat[i].set_ylabel("Value")
+            continue
 
         # Select chain columns
         chain_cols = [col for col in var_data.columns if col.startswith("chain_")]
@@ -795,7 +810,7 @@ def mcmc_trace(vars_n_chains: pd.DataFrame):
         axes_flat[i].set_xlabel("Sample Number")
         axes_flat[i].set_ylabel("Value")
 
-    # Remove extra subplots if any
+    # 5. Remove extra subplots if any
     for j in range(i + 1, len(axes_flat)):
         fig.delaxes(axes_flat[j])
 
@@ -805,44 +820,54 @@ def mcmc_trace(vars_n_chains: pd.DataFrame):
 
 
 def mcmc_hist(
-    vars_n_chains: pd.DataFrame,
-    stat: str = "count",
-    bins: int = 50,
+    vars_n_chains: pd.DataFrame, variables=None, stat: str = "count", bins: int = 50
 ):
     """
     Create histplots for MCMC sampling results in a grid.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     vars_n_chains : pd.DataFrame
         DataFrame from MCMC_STAN with columns: chain_{i}, sample_nr, var_name, is_warmup
-    stat: str
-        statistic on y axis
-    bins int:
-        number of bins in histogram
+    variables : str or list of str, optional
+        If None (default), all unique variables will be plotted.
+        If a string, only that single variable is plotted.
+        If a list of strings, only those variables are plotted.
+    stat : str
+        Statistic on y-axis (e.g., 'count', 'density', 'probability', etc.)
+    bins : int
+        Number of bins in histogram
     """
-    # Get unique variables
-    unique_vars = vars_n_chains["var_name"].unique()
+    # 1. Decide which variables to plot
+    if variables is None:
+        plot_vars = vars_n_chains["var_name"].unique()
+    elif isinstance(variables, str):
+        plot_vars = [variables]
+    else:
+        plot_vars = variables
 
-    # Calculate grid dimensions
-    num_vars = len(unique_vars)
+    # 2. Calculate grid dimensions
+    num_vars = len(plot_vars)
     num_cols = int(min(3, num_vars))
     num_rows = int(np.ceil(num_vars / num_cols))
 
-    # Create subplots
+    # 3. Create subplots
     fig, axes = plt.subplots(
         nrows=num_rows,
         ncols=num_cols,
         figsize=(7 * num_cols, 4 * num_rows),
         squeeze=False,
     )
-
-    # Flatten axes for easier indexing
     axes_flat = axes.flatten()
 
-    # Plot each variable
-    for i, var in enumerate(unique_vars):
+    # 4. Plot each variable
+    for i, var in enumerate(plot_vars):
         var_data = vars_n_chains[vars_n_chains["var_name"] == var]
+        if var_data.empty:
+            axes_flat[i].set_title(f"{var} - no data")
+            axes_flat[i].set_xlabel(var)
+            axes_flat[i].set_ylabel(stat)
+            continue
 
         # Select chain columns
         chain_cols = [col for col in var_data.columns if col.startswith("chain_")]
@@ -855,56 +880,109 @@ def mcmc_hist(
             value_name="value",
         )
 
-        # Create trace plot
+        # Create histogram
         sns.histplot(data=melted_data, x="value", ax=axes_flat[i], stat=stat, bins=bins)
-
-        axes_flat[i].set_title("dist of var " + var)
+        axes_flat[i].set_title(f"dist of var {var}")
         axes_flat[i].set_xlabel(var)
         axes_flat[i].set_ylabel(stat)
 
-    # Remove extra subplots if any
+    # 5. Remove extra subplots if any
     for j in range(i + 1, len(axes_flat)):
         fig.delaxes(axes_flat[j])
 
-    plt.suptitle("MCMC distribution")
+    plt.suptitle("MCMC distribution (Histogram)")
     plt.tight_layout()
     plt.show()
 
 
-def mcmc_dens(vars_n_chains: pd.DataFrame, individual_chains: str = True):
+def mcmc_combine_chains(vars_n_chains: pd.DataFrame) -> pd.DataFrame:
     """
-    Create histplots for MCMC sampling results in a grid.
+    Convert wide-format MCMC data (chain_0, chain_1, etc.) into a long format
+    with a single 'chain' column and a single 'value' column.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
+    vars_n_chains : pd.DataFrame
+        A DataFrame from MCMC sampling with columns:
+        - chain_{i} for each chain
+        - sample_nr
+        - var_name
+        - is_warmup (optional)
+        - and possibly other metadata columns
+
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame with columns such as:
+        - var_name
+        - sample_nr
+        - chain
+        - value
+        - is_warmup
+        Any additional columns (non-chain) from the original DataFrame are preserved
+        as "id_vars".
+    """
+    # Identify all columns that start with "chain_"
+    chain_cols = [col for col in vars_n_chains.columns if col.startswith("chain_")]
+
+    # Use 'melt' to pivot from wide to long format
+    melted_df = vars_n_chains.melt(
+        id_vars=[col for col in vars_n_chains.columns if col not in chain_cols],
+        value_vars=chain_cols,
+        var_name="chain",
+        value_name="value",
+    )
+
+    return melted_df
+
+
+def mcmc_dens(
+    vars_n_chains: pd.DataFrame, variables=None, individual_chains: bool = True
+):
+    """
+    Create density (kde) plots for MCMC sampling results in a grid.
+
+    Parameters
+    ----------
     vars_n_chains : pd.DataFrame
         DataFrame from MCMC_STAN with columns: chain_{i}, sample_nr, var_name, is_warmup
-    individual_chains: bool
-        if true each chain is plotted as hue
+    variables : str or list of str, optional
+        If None (default), all unique variables will be plotted.
+        If a string, only that single variable is plotted.
+        If a list of strings, only those variables are plotted.
+    individual_chains : bool
+        If True, each chain is plotted with a different color (hue).
     """
+    # 1. Decide which variables to plot
+    if variables is None:
+        plot_vars = vars_n_chains["var_name"].unique()
+    elif isinstance(variables, str):
+        plot_vars = [variables]
+    else:
+        plot_vars = variables
 
-    # Get unique variables
-    unique_vars = vars_n_chains["var_name"].unique()
-
-    # Calculate grid dimensions
-    num_vars = len(unique_vars)
+    # 2. Calculate grid dimensions
+    num_vars = len(plot_vars)
     num_cols = int(min(3, num_vars))
     num_rows = int(np.ceil(num_vars / num_cols))
 
-    # Create subplots
+    # 3. Create subplots
     fig, axes = plt.subplots(
         nrows=num_rows,
         ncols=num_cols,
         figsize=(7 * num_cols, 4 * num_rows),
         squeeze=False,
     )
-
-    # Flatten axes for easier indexing
     axes_flat = axes.flatten()
 
-    # Plot each variable
-    for i, var in enumerate(unique_vars):
+    # 4. Plot each variable
+    for i, var in enumerate(plot_vars):
         var_data = vars_n_chains[vars_n_chains["var_name"] == var]
+        if var_data.empty:
+            axes_flat[i].set_title(f"{var} - no data")
+            axes_flat[i].set_xlabel(var)
+            axes_flat[i].set_ylabel("density")
+            continue
 
         # Select chain columns
         chain_cols = [col for col in var_data.columns if col.startswith("chain_")]
@@ -917,7 +995,7 @@ def mcmc_dens(vars_n_chains: pd.DataFrame, individual_chains: str = True):
             value_name="value",
         )
 
-        # Create trace plot
+        # Create density (kde) plot
         sns.kdeplot(
             data=melted_data,
             x="value",
@@ -925,18 +1003,105 @@ def mcmc_dens(vars_n_chains: pd.DataFrame, individual_chains: str = True):
             hue="chain" if individual_chains else None,
             common_norm=False,
         )
-
-        axes_flat[i].set_title("dist of var " + var)
+        axes_flat[i].set_title(f"dist of var {var}")
         axes_flat[i].set_xlabel(var)
         axes_flat[i].set_ylabel("density")
 
-    # Remove extra subplots if any
+    # 5. Remove extra subplots if any
     for j in range(i + 1, len(axes_flat)):
         fig.delaxes(axes_flat[j])
 
-    plt.suptitle("MCMC distribution")
+    plt.suptitle("MCMC distribution (KDE)")
     plt.tight_layout()
     plt.show()
+
+
+def mcmc_summarize(
+    vars_n_chains: pd.DataFrame,
+    filter_warmup: bool = True,
+    percentiles: list = [0.025, 0.975],
+) -> pd.DataFrame:
+    """
+    Summarize MCMC samples for each variable (combining all chains).
+
+    Parameters
+    ----------
+    vars_n_chains : pd.DataFrame
+        DataFrame containing MCMC samples with columns:
+        - chain_{i} for each chain
+        - sample_nr
+        - var_name
+        - is_warmup (optional)
+    filter_warmup : bool, optional
+        If True, excludes warmup samples from the statistics (default: True)
+    percentiles : list, optional
+        A list of percentiles to compute (default: [0.025, 0.975])
+
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame with summary statistics for each variable:
+        - n_samples
+        - mean
+        - mode (computed using KDE)
+        - std
+        - Configurable percentiles as separate columns
+    """
+
+    # 1. Optionally filter out warmup samples
+    if filter_warmup and "is_warmup" in vars_n_chains.columns:
+        df = vars_n_chains[~vars_n_chains["is_warmup"]]
+    else:
+        df = vars_n_chains
+
+    # 2. Get unique variables
+    unique_vars = df["var_name"].unique()
+
+    # 3. Prepare summary statistics
+    summary_list = []
+    for var in unique_vars:
+        # Select only rows for this variable
+        var_data = df[df["var_name"] == var]
+
+        # Identify chain columns
+        chain_cols = [col for col in var_data.columns if col.startswith("chain_")]
+
+        # Flatten all chain samples into a single 1D array
+        samples = var_data[chain_cols].to_numpy().flatten()
+
+        # Number of samples
+        n_samples = len(samples)
+
+        # Compute statistics
+        mean_val = np.mean(samples)
+        std_val = np.std(samples, ddof=1)
+        percentile_vals = np.percentile(samples, percentiles)
+
+        # Compute mode using KDE
+        kde = stats.gaussian_kde(samples)
+        x_vals = np.linspace(min(samples), max(samples), 1000)
+        kde_vals = kde(x_vals)
+        mode_val = x_vals[np.argmax(kde_vals)]
+
+        # Prepare row dictionary
+        summary_row = {
+            "var_name": var,
+            "n_samples": n_samples,
+            "mean": mean_val,
+            "mode": mode_val,
+            "std": std_val,
+        }
+
+        # Add percentile columns dynamically
+        for p, val in zip(percentiles, percentile_vals):
+            summary_row[f"p{float(p*100)}"] = val
+
+        summary_list.append(summary_row)
+
+    # 4. Convert to DataFrame
+    summary_df = pd.DataFrame(summary_list).set_index("var_name")
+
+    return summary_df
 
 
 def neff_ratio(vars_n_chains: pd.DataFrame, filter_warmup: bool = True) -> pd.DataFrame:
@@ -1649,6 +1814,117 @@ def proba_normal(
         if pi_h_than is not None
         else None
     )
+
+    return p_less, p_between, p_higher
+
+
+def quantiles_mcmc(
+    vars_n_chains: pd.DataFrame, variable: str, quantiles: np.ndarray
+) -> np.ndarray:
+    """
+    Calculate empirical quantiles for a given variable from MCMC samples.
+
+    Parameters
+    ----------
+    vars_n_chains : pd.DataFrame
+        DataFrame from MCMC sampling with columns:
+          - chain_{i} for each chain
+          - sample_nr (index of draws within a chain)
+          - var_name (the parameter name)
+          - is_warmup (boolean indicating warmup vs. post-warmup draw), etc.
+    variable : str
+        Name of the parameter (var_name) to extract from the DataFrame.
+    quantiles : np.ndarray
+        Array of probabilities for which to compute empirical quantiles (e.g. [0.025, 0.5, 0.975]).
+
+    Returns
+    -------
+    np.ndarray
+        Quantile values corresponding to the requested probabilities, computed from the MCMC samples.
+    """
+
+    # 1. Filter rows only for the requested variable
+    var_data = vars_n_chains[vars_n_chains["var_name"] == variable]
+
+    # 2. Identify chain columns
+    chain_cols = [col for col in var_data.columns if col.startswith("chain_")]
+
+    # 3. Flatten all chain samples into a single 1D array
+    samples = var_data[chain_cols].to_numpy().flatten()
+
+    # 4. Compute quantiles (empirical) from these samples
+    return np.quantile(samples, quantiles)
+
+
+def proba_mcmc(
+    vars_n_chains: pd.DataFrame,
+    variable: str,
+    pi_l_than: float = None,
+    pi_between: np.ndarray = None,
+    pi_h_than: float = None,
+    filter_warmup: bool = True,
+):
+    """
+    Calculate probabilities for different regions of an MCMC-derived distribution.
+
+    This mimics proba_beta but uses empirical samples instead of a Beta distribution.
+
+    Parameters
+    ----------
+    vars_n_chains : pd.DataFrame
+        DataFrame from MCMC sampling with columns:
+          - chain_{i} for each chain
+          - sample_nr (index of draws within a chain)
+          - var_name (the parameter name)
+          - is_warmup (boolean indicating warmup vs. post-warmup draw)
+    variable : str
+        Name of the parameter (var_name) in vars_n_chains to analyze.
+    pi_l_than : float, optional
+        Upper bound for "less than" probability
+    pi_between : np.ndarray, optional
+        Array of [lower, upper] bounds for "between" probability
+    pi_h_than : float, optional
+        Lower bound for "higher than" probability
+    filter_warmup : bool, optional
+        If True, exclude warmup samples from the computation (default True)
+
+    Returns
+    -------
+    tuple
+        (P(X < pi_l_than), P(pi_between[0] < X < pi_between[1]), P(X > pi_h_than))
+        Each probability is None if the corresponding input is None.
+    """
+
+    # 1. (Optional) Filter out warmup samples
+    if filter_warmup and "is_warmup" in vars_n_chains.columns:
+        df = vars_n_chains[~vars_n_chains["is_warmup"]]
+    else:
+        df = vars_n_chains
+
+    # 2. Filter for the given variable
+    df_var = df[df["var_name"] == variable]
+
+    # 3. Flatten all chain_ columns into a single 1D array
+    chain_cols = [col for col in df_var.columns if col.startswith("chain_")]
+    samples = df_var[chain_cols].to_numpy().flatten()
+
+    # Validate pi_between if provided
+    if pi_between is not None:
+        if len(pi_between) != 2:
+            raise ValueError("pi_between must be an array of exactly 2 values")
+
+    # 4. Calculate the probabilities
+    p_less = None
+    if pi_l_than is not None:
+        p_less = np.mean(samples < pi_l_than)
+
+    p_between = None
+    if pi_between is not None:
+        p_between = np.mean((samples > pi_between[0]) & (samples < pi_between[1]))
+
+    p_higher = None
+    if pi_h_than is not None:
+        p_higher = np.mean(samples > pi_h_than)
 
     return p_less, p_between, p_higher
 
