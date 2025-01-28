@@ -669,6 +669,7 @@ def mcmc_stan(
     num_warmup=5000,
     save_warmup: bool = False,
     random_seed=42,
+    return_all: bool = False,
 ):
     """
     Run Markov Chain Monte Carlo (MCMC) sampling using Stan and process results.
@@ -692,6 +693,8 @@ def mcmc_stan(
         Whether to include warmup samples in the output (default: False)
     random_seed : int, optional
         Seed for random number generation to ensure reproducibility (default: 42)
+    return_all : bool, optional
+        If set to True -> additonally return fit object and model itself
 
     Returns:
     --------
@@ -701,6 +704,8 @@ def mcmc_stan(
         - sample_nr: Sample number within the chain
         - var_name: Parameter name
         - is_warmup: Boolean indicating if sample is from warmup period
+    fit: only if return_all is True
+    model: only if return_all is true
     """
 
     # Build Stan model with specified data and random seed
@@ -737,7 +742,13 @@ def mcmc_stan(
         dfs.append(df)
 
     # Concatenate results from all parameters
-    return pd.concat(dfs, ignore_index=True)
+    dfs = pd.concat(dfs, ignore_index=True)
+
+    if return_all:
+        # return all
+        return dfs, fit, posterior
+
+    return dfs
 
 
 def mcmc_trace(vars_n_chains: pd.DataFrame, variables=None):
@@ -1945,13 +1956,15 @@ def fit_glm(
     formula: str,
     data: pd.DataFrame,
     family: str = "gaussian",
-    auto_scale: bool = False,
+    auto_scale: bool = True,
+    center_predictors: bool = True,
     num_chains: int = 4,
     num_samples: int = 10000,
     num_warmup: int = 5000,
     save_warmup: bool = False,
     random_seed: int = 42,
     priors: Optional[Dict[str, bmb.Prior]] = None,
+    return_all: bool = False,
 ) -> pd.DataFrame:
     """
     Fits a Generalized Linear Model (GLM) using Bambi, with the option to specify priors.
@@ -1960,24 +1973,34 @@ def fit_glm(
     - formula (str): The model formula, e.g., 'y ~ x1 + x2'.
     - data (pd.DataFrame): The dataset to be used for modeling.
     - family (str): The family distribution, e.g., 'gaussian', 'bernoulli', etc.
-    - auto_scale (bool): Whether to automatically scale the predictors.
+    - auto_scale (bool): Whether to automatically scale the priors to be informative.
+    - center_predictors (bool): Wether to center (subtracting the mean) the data -> This changes interpretation of the priors.
     - num_chains (int): Number of MCMC chains.
     - num_samples (int): Number of samples per chain.
     - num_warmup (int): Number of warmup (burn-in) samples per chain.
     - save_warmup (bool): Whether to include warmup samples in the output.
     - random_seed (int): Random seed for reproducibility.
     - priors (Optional[Dict[str, bmb.Prior]]): A dictionary specifying priors for the model parameters.
+    - return_all (bool): If True -> also returns fit object and model itself
 
     Returns:
     - pd.DataFrame: A concatenated DataFrame containing the sampling results for all parameters,
                     including information about the chain, sample number, variable name, and
                     whether the sample is part of the warmup.
+    - fit: Fit object if return_all True
+    - model: Fit model if return_all True
     """
 
     # Create the model, including priors if provided
     model = bmb.Model(
-        formula=formula, data=data, family=family, auto_scale=auto_scale, priors=priors
+        formula=formula,
+        data=data,
+        family=family,
+        auto_scale=auto_scale,
+        center_predictors=center_predictors,
+        priors=priors,
     )
+    model.build()
 
     # Fit the model using MCMC sampling
     fit = model.fit(
@@ -2033,5 +2056,9 @@ def fit_glm(
 
     # Create a flag to indicate whether a sample is part of the warmup
     df["is_warmup"] = df.sample_nr < 0
+
+    # if return all enabled -> return df and fit
+    if return_all:
+        return df, fit, model
 
     return df
