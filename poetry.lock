@@ -155,6 +155,35 @@ files = [
 ]
 
 [[package]]
+name = "arviz"
+version = "0.20.0"
+description = "Exploratory analysis of Bayesian models"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+markers = "python_version == \"3.11\" or python_version >= \"3.12\""
+files = [
+    {file = "arviz-0.20.0-py3-none-any.whl", hash = "sha256:5ec4f2ec180a8305ff3d1108c29e189944ab939663eb5bc3231ff199a1a5dc36"},
+    {file = "arviz-0.20.0.tar.gz", hash = "sha256:a2704e0c141410fcaea1973a90cabf280f5aed5c1e10f44381ebd6c144c10a9c"},
+]
+
+[package.dependencies]
+h5netcdf = ">=1.0.2"
+matplotlib = ">=3.5"
+numpy = ">=1.23.0"
+packaging = "*"
+pandas = ">=1.5.0"
+scipy = ">=1.9.0"
+setuptools = ">=60.0.0"
+typing-extensions = ">=4.1.0"
+xarray = ">=2022.6.0"
+xarray-einstats = ">=0.3"
+
+[package.extras]
+all = ["bokeh (>=3)", "contourpy", "dask[distributed]", "dm-tree (>=0.1.8)", "netcdf4", "numba", "ujson", "xarray-datatree", "zarr (>=2.5.0,<3)"]
+preview = ["arviz-base[h5netcdf]", "arviz-plots", "arviz-stats[xarray]"]
+
+[[package]]
 name = "asttokens"
 version = "3.0.0"
 description = "Annotate AST trees with source code positions"
@@ -671,6 +700,66 @@ files = [
     {file = "frozenlist-1.5.0-py3-none-any.whl", hash = "sha256:d994863bba198a4a518b467bb971c56e1db3f180a25c6cf7bb1949c267f748c3"},
     {file = "frozenlist-1.5.0.tar.gz", hash = "sha256:81d5af29e61b9c8348e876d442253723928dce6433e0e76cd925cd83f1b4b817"},
 ]
+
+[[package]]
+name = "h5netcdf"
+version = "1.5.0"
+description = "netCDF4 via h5py"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+markers = "python_version == \"3.11\" or python_version >= \"3.12\""
+files = [
+    {file = "h5netcdf-1.5.0-py3-none-any.whl", hash = "sha256:1baca17d395e14cd06899d0334385c9a27e86baa4c6ff2fc51ac44fd210fd843"},
+    {file = "h5netcdf-1.5.0.tar.gz", hash = "sha256:9d6c28147677bd075787881aadb24d2fdb0bc0319481bcb5d2a54dc4b94c4ba9"},
+]
+
+[package.dependencies]
+h5py = "*"
+packaging = "*"
+
+[package.extras]
+test = ["netCDF4", "pytest"]
+
+[[package]]
+name = "h5py"
+version = "3.12.1"
+description = "Read and write HDF5 files from Python"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+markers = "python_version == \"3.11\" or python_version >= \"3.12\""
+files = [
+    {file = "h5py-3.12.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:2f0f1a382cbf494679c07b4371f90c70391dedb027d517ac94fa2c05299dacda"},
+    {file = "h5py-3.12.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:cb65f619dfbdd15e662423e8d257780f9a66677eae5b4b3fc9dca70b5fd2d2a3"},
+    {file = "h5py-3.12.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:3b15d8dbd912c97541312c0e07438864d27dbca857c5ad634de68110c6beb1c2"},
+    {file = "h5py-3.12.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:59685fe40d8c1fbbee088c88cd4da415a2f8bee5c270337dc5a1c4aa634e3307"},
+    {file = "h5py-3.12.1-cp310-cp310-win_amd64.whl", hash = "sha256:577d618d6b6dea3da07d13cc903ef9634cde5596b13e832476dd861aaf651f3e"},
+    {file = "h5py-3.12.1-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:ccd9006d92232727d23f784795191bfd02294a4f2ba68708825cb1da39511a93"},
+    {file = "h5py-3.12.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:ad8a76557880aed5234cfe7279805f4ab5ce16b17954606cca90d578d3e713ef"},
+    {file = "h5py-3.12.1-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:1473348139b885393125126258ae2d70753ef7e9cec8e7848434f385ae72069e"},
+    {file = "h5py-3.12.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:018a4597f35092ae3fb28ee851fdc756d2b88c96336b8480e124ce1ac6fb9166"},
+    {file = "h5py-3.12.1-cp311-cp311-win_amd64.whl", hash = "sha256:3fdf95092d60e8130ba6ae0ef7a9bd4ade8edbe3569c13ebbaf39baefffc5ba4"},
+    {file = "h5py-3.12.1-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:06a903a4e4e9e3ebbc8b548959c3c2552ca2d70dac14fcfa650d9261c66939ed"},
+    {file = "h5py-3.12.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:7b3b8f3b48717e46c6a790e3128d39c61ab595ae0a7237f06dfad6a3b51d5351"},
+    {file = "h5py-3.12.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:050a4f2c9126054515169c49cb900949814987f0c7ae74c341b0c9f9b5056834"},
+    {file = "h5py-3.12.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5c4b41d1019322a5afc5082864dfd6359f8935ecd37c11ac0029be78c5d112c9"},
+    {file = "h5py-3.12.1-cp312-cp312-win_amd64.whl", hash = "sha256:e4d51919110a030913201422fb07987db4338eba5ec8c5a15d6fab8e03d443fc"},
+    {file = "h5py-3.12.1-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:513171e90ed92236fc2ca363ce7a2fc6f2827375efcbb0cc7fbdd7fe11fecafc"},
+    {file = "h5py-3.12.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:59400f88343b79655a242068a9c900001a34b63e3afb040bd7cdf717e440f653"},
+    {file = "h5py-3.12.1-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d3e465aee0ec353949f0f46bf6c6f9790a2006af896cee7c178a8c3e5090aa32"},
+    {file = "h5py-3.12.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ba51c0c5e029bb5420a343586ff79d56e7455d496d18a30309616fdbeed1068f"},
+    {file = "h5py-3.12.1-cp313-cp313-win_amd64.whl", hash = "sha256:52ab036c6c97055b85b2a242cb540ff9590bacfda0c03dd0cf0661b311f522f8"},
+    {file = "h5py-3.12.1-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:d2b8dd64f127d8b324f5d2cd1c0fd6f68af69084e9e47d27efeb9e28e685af3e"},
+    {file = "h5py-3.12.1-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:4532c7e97fbef3d029735db8b6f5bf01222d9ece41e309b20d63cfaae2fb5c4d"},
+    {file = "h5py-3.12.1-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:6fdf6d7936fa824acfa27305fe2d9f39968e539d831c5bae0e0d83ed521ad1ac"},
+    {file = "h5py-3.12.1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:84342bffd1f82d4f036433e7039e241a243531a1d3acd7341b35ae58cdab05bf"},
+    {file = "h5py-3.12.1-cp39-cp39-win_amd64.whl", hash = "sha256:62be1fc0ef195891949b2c627ec06bc8e837ff62d5b911b6e42e38e0f20a897d"},
+    {file = "h5py-3.12.1.tar.gz", hash = "sha256:326d70b53d31baa61f00b8aa5f95c2fcb9621a3ee8365d770c551a13dbbcbfdf"},
+]
+
+[package.dependencies]
+numpy = ">=1.19.3"
 
 [[package]]
 name = "httpstan"
@@ -2170,7 +2259,7 @@ description = "Backported and Experimental Type Hints for Python 3.8+"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "python_version == \"3.11\""
+markers = "python_version == \"3.11\" or python_version >= \"3.12\""
 files = [
     {file = "typing_extensions-4.12.2-py3-none-any.whl", hash = "sha256:04e5ca0351e0f3f85c6853954072df659d0d13fac324d0072316b67d7794700d"},
     {file = "typing_extensions-4.12.2.tar.gz", hash = "sha256:1a7ead55c7e559dd4dee8856e3a88b41225abfe1ce8df57b7c13915fe121ffb8"},
@@ -2224,6 +2313,57 @@ dev = ["pre-commit (>=3.5,<4.0)", "tox", "webargs[tests]"]
 docs = ["Sphinx (==8.0.2)", "furo (==2024.8.6)", "sphinx-issues (==4.1.0)", "webargs[frameworks]"]
 frameworks = ["Django (>=2.2.0)", "Flask (>=0.12.5)", "aiohttp (>=3.0.8)", "bottle (>=0.12.13)", "falcon (>=2.0.0)", "pyramid (>=1.9.1)", "tornado (>=4.5.2)"]
 tests = ["pytest", "pytest-aiohttp (>=0.3.0)", "pytest-asyncio", "webargs[frameworks]", "webtest (==3.0.1)", "webtest-aiohttp (==2.0.0)"]
+
+[[package]]
+name = "xarray"
+version = "2025.1.1"
+description = "N-D labeled arrays and datasets in Python"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+markers = "python_version == \"3.11\" or python_version >= \"3.12\""
+files = [
+    {file = "xarray-2025.1.1-py3-none-any.whl", hash = "sha256:8a69d17c1e4ad09664fd0bc2dbb398e7368eda25bd19456fb919a6eb6490fb72"},
+    {file = "xarray-2025.1.1.tar.gz", hash = "sha256:1a3011d00ca92a94ba31b297c2eccd310b87a7dacf5acc8d0468385d4a834342"},
+]
+
+[package.dependencies]
+numpy = ">=1.24"
+packaging = ">=23.2"
+pandas = ">=2.1"
+
+[package.extras]
+accel = ["bottleneck", "flox", "numba (>=0.54)", "numbagg", "opt_einsum", "scipy"]
+complete = ["xarray[accel,etc,io,parallel,viz]"]
+dev = ["hypothesis", "jinja2", "mypy", "pre-commit", "pytest", "pytest-cov", "pytest-env", "pytest-timeout", "pytest-xdist", "ruff (>=0.8.0)", "sphinx", "sphinx_autosummary_accessors", "xarray[complete]"]
+etc = ["sparse"]
+io = ["cftime", "fsspec", "h5netcdf", "netCDF4", "pooch", "pydap", "scipy", "zarr"]
+parallel = ["dask[complete]"]
+viz = ["cartopy", "matplotlib", "nc-time-axis", "seaborn"]
+
+[[package]]
+name = "xarray-einstats"
+version = "0.8.0"
+description = "Stats, linear algebra and einops for xarray"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+markers = "python_version == \"3.11\" or python_version >= \"3.12\""
+files = [
+    {file = "xarray_einstats-0.8.0-py3-none-any.whl", hash = "sha256:fd00552c3fb5c859b1ebc7c88a97342d3bb93d14bba904c5a9b94a4f724b76b4"},
+    {file = "xarray_einstats-0.8.0.tar.gz", hash = "sha256:7f1573f9bd4d60d6e7ed9fd27c4db39da51ec49bf8ba654d4602a139a6309d7f"},
+]
+
+[package.dependencies]
+numpy = ">=1.23"
+scipy = ">=1.9"
+xarray = ">=2022.09.0"
+
+[package.extras]
+doc = ["furo", "jupyter-sphinx", "matplotlib", "myst-nb", "myst-parser[linkify]", "numpydoc", "sphinx (>=5)", "sphinx-copybutton", "sphinx-design", "sphinx-togglebutton", "watermark"]
+einops = ["einops"]
+numba = ["numba (>=0.55)"]
+test = ["hypothesis", "packaging", "pytest", "pytest-cov"]
 
 [[package]]
 name = "yarl"
@@ -2326,4 +2466,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<4.0"
-content-hash = "9dce6dd924e1f028b4b4ff1bd5657954460b5b653ffcb89cd65a39761f4b03e0"
+content-hash = "87184e857deca0d50dba9e4b5c0b67fb9c3c1fb7b9b86dc84f5c67a236fc5c9d"

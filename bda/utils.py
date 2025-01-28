@@ -5,6 +5,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import stan
 import nest_asyncio
+import arviz as az
 
 nest_asyncio.apply()
 
@@ -940,75 +941,71 @@ def mcmc_dens(vars_n_chains: pd.DataFrame, individual_chains: str = True):
 
 def neff_ratio(vars_n_chains: pd.DataFrame, filter_warmup: bool = True) -> pd.DataFrame:
     """
-    Calculate the effective sample size (ESS) ratio for MCMC sampling results.
+    Calculate the effective sample size (ESS) using ArviZ for MCMC sampling results.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     vars_n_chains : pd.DataFrame
         DataFrame from mcmc_stan with columns: chain_{i}, sample_nr, var_name, is_warmup
-    filter_warmup : bool
-        if true the warmup samples are getting filtered out
+    filter_warmup : bool, optional
+        If True, exclude warmup samples from the ESS calculation (default: True)
 
-    Returns:
-    --------
+    Returns
+    -------
     pd.DataFrame
-        Effective sample size ratio for each variable
+        A DataFrame indexed by variable name, containing:
+        - ess_mean (the ArviZ mean ESS)
+        - ess_mean_ratio (the mean ESS as a fraction of total post-warmup draws)
     """
 
-    # Filter out warmup samples
+    # 1. Filter out warmup samples if requested
     samples = (
         vars_n_chains[~vars_n_chains["is_warmup"]] if filter_warmup else vars_n_chains
     )
 
-    # Prepare results DataFrame
-    results = []
-
-    # Get unique variables
+    # Identify chain columns and variables
+    chain_cols = [col for col in samples.columns if col.startswith("chain_")]
     unique_vars = samples["var_name"].unique()
 
+    # 2. Build a dictionary where each key is a variable name and
+    #    the corresponding value is a 2D array with shape (n_chains, n_draws)
+    posterior_dict = {}
     for var in unique_vars:
-        # Filter data for current variable
-        var_data = samples[samples["var_name"] == var]
+        var_data = samples[samples["var_name"] == var].sort_values("sample_nr")
+        # shape = (n_draws, n_chains)
+        arr = var_data[chain_cols].to_numpy()
+        # transpose to match ArviZ format: (n_chains, n_draws)
+        posterior_dict[var] = arr.T
 
-        # Select chain columns
-        chain_cols = [col for col in var_data.columns if col.startswith("chain_")]
+    # 3. Convert to InferenceData
+    idata = az.from_dict(posterior=posterior_dict)
 
-        # Calculate diagnostics for each parameter
-        n_samples = len(var_data)
-        n_chains = len(chain_cols)
+    # 4. Calculate the mean ESS with ArviZ
+    ess_dataset = az.ess(idata, var_names=list(unique_vars), method="mean")
+    # ess_dataset is now an xarray.Dataset that may be 0D if there's only one variable
 
-        # Calculate within-chain and between-chain variance
-        chain_means = var_data[chain_cols].mean()
-        within_chain_var = var_data[chain_cols].var(ddof=1).mean()
-        between_chain_var = n_samples / (n_chains - 1) * chain_means.var(ddof=1)
+    # 5. Extract each variable’s ESS value and build the final DataFrame
+    rows = []
+    for var in unique_vars:
+        # If only one variable, .values is 0D; if multiple, .values is also dimensionless (1D with length=1).
+        ess_val = ess_dataset[
+            var
+        ].values.item()  # Convert the array/scalar to a Python float
+        n_chains, n_draws = posterior_dict[var].shape
+        total_draws = n_chains * n_draws
 
-        # Estimate of marginal posterior variance
-        marginal_var = (
-            (n_samples - 1) / n_samples
-        ) * within_chain_var + between_chain_var / n_chains
-
-        # Effective sample size (ESS)
-        if marginal_var > 0:
-            ess = (n_samples * n_chains * within_chain_var) / marginal_var
-            # ESS ratio relative to total number of samples
-            ess_ratio = ess / (n_samples * n_chains)
-        else:
-            ess = 0
-            ess_ratio = 0
-
-        # Store results
-        results.append(
+        rows.append(
             {
                 "var_name": var,
-                "n_samples": n_samples,
+                "n_draws": n_draws,
                 "n_chains": n_chains,
-                "ess": ess,
-                "ess_ratio": ess_ratio,
+                "ess": ess_val,
+                "ess_ratio": ess_val / total_draws if total_draws else 0,
             }
         )
 
-    # Convert to DataFrame
-    return pd.DataFrame(results).set_index("var_name")
+    result_df = pd.DataFrame(rows).set_index("var_name")
+    return result_df
 
 
 def mcmc_acf(vars_n_chains: pd.DataFrame, lags: int = 20, filter_warmup: bool = True):
@@ -1096,75 +1093,67 @@ def mcmc_acf(vars_n_chains: pd.DataFrame, lags: int = 20, filter_warmup: bool = 
 
 def rhat(vars_n_chains: pd.DataFrame, filter_warmup: bool = True) -> pd.DataFrame:
     """
-    Calculate R-hat (Gelman-Rubin statistic) for MCMC sampling results.
+    Calculate R-hat (Gelman-Rubin statistic) for MCMC sampling results using ArviZ.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     vars_n_chains : pd.DataFrame
         DataFrame from mcmc_stan with columns: chain_{i}, sample_nr, var_name, is_warmup
-    filter_warmup : bool
-        if true the warmup samples are getting filtered out
+    filter_warmup : bool, optional
+        If True, exclude warmup samples from the R-hat calculation (default: True)
 
-    Returns:
-    --------
+    Returns
+    -------
     pd.DataFrame
-        R-hat values for each parameter
+        A DataFrame indexed by variable name, containing:
+        - rhat: the Gelman-Rubin statistic for each parameter
+        - n_chains: how many chains were used
     """
 
-    # Filter out warmup samples
+    # 1. Filter out warmup samples if requested
     samples = (
         vars_n_chains[~vars_n_chains["is_warmup"]] if filter_warmup else vars_n_chains
     )
 
-    # Prepare results list
-    results = []
-
-    # Get unique variables
+    # Identify chain columns and unique variables
+    chain_cols = [col for col in samples.columns if col.startswith("chain_")]
     unique_vars = samples["var_name"].unique()
 
+    # 2. Build a dictionary of var_name -> 2D NumPy array (shape: [n_chains, n_draws])
+    posterior_dict = {}
     for var in unique_vars:
-        # Filter data for current variable
-        var_data = samples[samples["var_name"] == var]
+        var_data = samples[samples["var_name"] == var].sort_values("sample_nr")
+        # shape = (n_draws, n_chains)
+        arr = var_data[chain_cols].to_numpy()
+        # Transpose so that shape = (n_chains, n_draws), matching ArviZ's expected format
+        posterior_dict[var] = arr.T
 
-        # Select chain columns
-        chain_cols = [col for col in var_data.columns if col.startswith("chain_")]
+    # 3. Convert our dict into an InferenceData object
+    idata = az.from_dict(posterior=posterior_dict)
 
-        # Ensure we have multiple chains
-        if len(chain_cols) < 2:
-            results.append(
-                {"var_name": var, "rhat": np.nan, "n_chains": len(chain_cols)}
-            )
-            continue
+    # 4. Calculate R-hat with ArviZ
+    #    This returns an xarray.Dataset with a variable for each requested var_name
+    rhat_dataset = az.rhat(idata, var_names=list(unique_vars))
 
-        # Calculate chain-wise statistics
-        chain_means = var_data[chain_cols].mean()
-        chain_vars = var_data[chain_cols].var(ddof=1)
+    # 5. Build final results DataFrame
+    rows = []
+    for var in unique_vars:
+        n_chains, _ = posterior_dict[var].shape
 
-        # Overall mean
-        overall_mean = chain_means.mean()
+        # If there's only one variable or only one element, you'll get a 0D array;
+        # either way, .item() extracts the scalar.
+        rhat_val = rhat_dataset[var].values.item()
 
-        # Between-chain variance
-        B = (
-            len(var_data)
-            / (len(chain_cols) - 1)
-            * sum((chain_means - overall_mean) ** 2)
+        rows.append(
+            {
+                "var_name": var,
+                "rhat": rhat_val,
+                "n_chains": n_chains,
+            }
         )
 
-        # Within-chain variance
-        W = chain_vars.mean()
-
-        # Marginal posterior variance estimate
-        # Add small constant to prevent division by zero
-        var_est = ((len(var_data) - 1) / len(var_data)) * W + (B / len(var_data))
-
-        # R-hat calculation
-        rhat_val = np.sqrt(var_est / (W + 1e-10))
-
-        # Store results
-        results.append({"var_name": var, "rhat": rhat_val, "n_chains": len(chain_cols)})
-
-    # Convert to DataFrame
-    return pd.DataFrame(results).set_index("var_name")
+    result_df = pd.DataFrame(rows).set_index("var_name")
+    return result_df
 
 
 # Metropolis-Hastings MCMC
