@@ -43,7 +43,7 @@ def plot_binomial_likelihood(n: int, y: int):
 
     p = np.linspace(0, 1, 1000)
     likelihood = stats.binom.pmf(y, n, p)
-    likelihood /= np.trapezoid(likelihood, p)  # Scale for comparison
+    likelihood /= np.trapz(likelihood, p)  # Scale for comparison
 
     plt.figure(figsize=(8, 5))
     plt.plot(p, likelihood, label=f"Scaled Likelihood (n={n}, y={y})")
@@ -73,7 +73,7 @@ def plot_beta_binomial(alpha: float, beta: float, n: int, y: int):
 
     # Scaled likelihood (Binomial likelihood scaled to match the Beta shape)
     likelihood_pdf = x**y * (1 - x) ** (n - y)
-    likelihood_pdf /= np.trapezoid(likelihood_pdf, x)  # Scale for comparison
+    likelihood_pdf /= np.trapz(likelihood_pdf, x)  # Scale for comparison
 
     # Posterior distribution
     posterior_alpha = alpha + y
@@ -220,7 +220,7 @@ def plot_poisson_likelihood(y: np.ndarray, lambda_upper_bound: float):
         likelihoods.append(joint_likelihood)
 
     likelihoods = np.array(likelihoods)
-    likelihoods /= np.trapezoid(likelihoods, lambdas)  # Scale for comparison
+    likelihoods /= np.trapz(likelihoods, lambdas)  # Scale for comparison
 
     plt.figure(figsize=(8, 5))
     plt.plot(lambdas, likelihoods, label="Scaled Joint Likelihood")
@@ -265,7 +265,7 @@ def plot_gamma_poisson(shape: float, rate: float, sum_y: int, n: int):
 
     # Scaled likelihood (Poisson likelihood scaled to match Gamma shape)
     likelihood_pdf = x**sum_y * np.exp(-n * x)
-    likelihood_pdf /= np.trapezoid(likelihood_pdf, x)  # Scale for comparison
+    likelihood_pdf /= np.trapz(likelihood_pdf, x)  # Scale for comparison
 
     # Posterior distribution
     posterior_shape = shape + sum_y
@@ -459,7 +459,7 @@ def plot_normal_likelihood(y: np.ndarray, sigma: float):
 
     # Scale the likelihood for plotting
     # Here, we use trapezoidal numerical integration to scale the curve
-    area = np.trapezoid(likelihoods, mus)
+    area = np.trapz(likelihoods, mus)
     if area > 0:
         likelihoods /= area
 
@@ -541,7 +541,7 @@ def plot_normal_normal(
     # We'll scale it so the area is comparable to a PDF for the plot
     like_pdf_raw = stats.norm.pdf(y_mean, loc=x, scale=like_sd)
     # Use trapezoid to normalize
-    like_area = np.trapezoid(like_pdf_raw, x)
+    like_area = np.trapz(like_pdf_raw, x)
     if like_area > 0:
         like_pdf = like_pdf_raw / like_area
     else:

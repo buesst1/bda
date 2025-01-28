@@ -6,17 +6,18 @@ authors = [
     {name = "Tobias Buess", email = "tobias.buess@students.fhnw.ch"}
 ]
 readme = "README.md"
-requires-python = ">=3.11,<4.0"
+requires-python = ">=3.11,<3.13"
 dependencies = [
     "pystan (>=3.10.0,<4.0.0)",
     "ipykernel (>=6.29.5,<7.0.0)",
     "seaborn (>=0.13.2,<0.14.0)",
     "matplotlib (>=3.10.0,<4.0.0)",
-    "numpy (>=2.2.2,<3.0.0)",
     "pandas (>=2.2.3,<3.0.0)",
     "scipy (>=1.15.1,<2.0.0)",
     "nest-asyncio (>=1.6.0,<2.0.0)",
-    "arviz (>=0.20.0,<0.21.0)"
+    "arviz (>=0.20.0,<0.21.0)",
+    "pymc (>=5.20.0,<6.0.0)",
+    "numpy (==1.26.4)"
 ]
 
 
